@@ -17,12 +17,11 @@ from sklearn.base import BaseEstimator,ClassifierMixin
 
 class TFBaseEstimator(BaseEstimator):
     def __init__(self):
-
         self.train_step = None
         self.predict_step = None
         self.is_fitted = False
         self._var_scope = None
-        self.session = tf.InteractiveSession()
+        self.session = tf.Session()
     
     def _get_var_scope(self):
         """ Create a unique string for the variable scope 
@@ -32,6 +31,9 @@ class TFBaseEstimator(BaseEstimator):
             self._var_scope = type(self).__name__+ '_'+''.join(choice(ascii_lowercase+digits) for i in range(10))
         return self._var_scope
 
+    def __del__(self):
+        self.session.close()
+        del self.session
 
 
 class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
@@ -39,137 +41,121 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class cannot be instantiated.
         """
 
-    def __init__(self):
-        super(TFBaseClassifier,self).__init__()
-         
+    def __init__(self,random_state=None,learning_rate = 0.5):
+        super(TFBaseClassifier, self).__init__() 
         self.classes_ = None
         self.x = None
         self.y_ = None
+        self.feature_shape = None
+        self.n_outputs = None
+        self.loss =None
+        self.warm_start = False
+        self.random_state = random_state
+        self.learning_rate = learning_rate
         
 
-    def fit(self,X,y):
-        self.classes_ = np.unique(targets)
+    def fit(self,X,y,warm_start = False):
+        self.warm_start = warm_start
+        if self.random_state is not None:
+            
+            np.random.seed(self.random_state)
+            tf.set_random_seed(self.random_state)
+
+
+        self.classes_ = np.unique(y)
         # targets need to be binarized
         lb = LabelBinarizer()
-        bin_targets = lb.fit_transform(targets)
-        if bin_targets.shape[1]==1:
-            bin_targets = pylab.concatenate([1-bin_targets,bin_targets],axis = 1)
-        n_outputs = bin_targets.shape[1]
-        n_features = data.shape[1]
+        bin_y = lb.fit_transform(y)
+        if bin_y.shape[1]==1:
+            bin_y = pylab.concatenate([1-bin_y,bin_y],axis = 1)
+        self.n_outputs = bin_y.shape[1]
+        self.feature_shape = list(X.shape[1:])
         # place holder for the input and output
-        self.x = tf.placeholder(tf.float32,[None,n_features])
-        self.y_ = tf.placeholder(tf.float32,[None,n_outputs])
+        self.x = tf.placeholder(tf.float32,[None]+self.feature_shape)
+        self.y = tf.placeholder(tf.float32,[None,self.n_outputs])
+       
+        # create graph
+        if not self.is_fitted and not self.warm_start:
+            self._create_graph()
+
         # op for prediction_step
         self.predict_step = self._predict_step()
+
         # op for train step
         self.train_step = self._train_step()
         # initialize variables
-        self.session.run(tf.global_variables_initializer())
+        if not self.warm_start:
+            self.session.run(tf.global_variables_initializer())
         # run the training
-        self._train_loop()
-
-        self.isfitted = True
+        self._train_loop(X,bin_y)
+        self.is_fitted = True
 
         return self
     
     def predict_proba(self,X):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         
         return self.session.run(self.predict_step,feed_dict={self.x:X.astype(float)})
     
     def predict(self,X):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         proba = self.predict_proba(X)
         return self.classes_[pylab.argmax(proba,axis=1)]
+    
+    def _train_loop(self,X,y):
+        iteration = 0
+        losses = [10000.] * 5#self.num_loss_averages
+        while True:
+            if self.iterations is not None and iteration>=self.iterations:
+                break
+            self.session.run(self.train_step,feed_dict = {self.x:X,self.y:y})
+            iteration += 1
+            
+            if self.iterations is None and iteration%10 ==0:
+                
+                loss = self.session.run(self.loss,feed_dict = {self.x:X,self.y:y})
+                losses = [loss] + losses[:-1]
+                if np.diff(losses).max()<min(losses)/100.:
+                    break
+    def _create_graph(self):
+        # this needs to be filled
+        raise NotImplementedError
+
     def _predict_step(self):
         # this needs to be filled
-        pass
+        raise NotImplementedError
     def _train_step(self):
         # this needs to be filled
-        pass
-    def _train_loop(self):
-        # this needs to be filled
-        pass
+        raise NotImplementedError
+    
 
-class LR_old:
-    def __init__(self,iterations = 1000,trainstep = 0.5):
-        self.iterations  =iterations
-        self.trainstep = trainstep
+class LogisticRegression(TFBaseClassifier):
+    def __init__(self,C = 1.,random_state = None,iterations = 1000,learning_rate=0.5):
+        super(LogisticRegression,self).__init__(random_state=random_state,learning_rate=learning_rate)
+        self.C = C
         self.w = None
         self.b = None
-        self.x = None
-        self.y = None
-        self.session = tf.InteractiveSession()
-        self.isfitted = False
-        self.classes_ = None
-
-    def fit(self,data,targets):
-        self.classes_ = np.unique(targets)
-        # targets need to be binarized
-        lb = LabelBinarizer()
-        bin_targets = lb.fit_transform(targets)
-        if bin_targets.shape[1]==1:
-            bin_targets = pylab.concatenate([1-bin_targets,bin_targets],axis = 1)
-        n_outputs = bin_targets.shape[1]
-        n_features = data.shape[1]
-        self.x = tf.placeholder(tf.float32,[None,n_features])
-        y_ = tf.placeholder(tf.float32,[None,n_outputs])
-        self.w = tf.Variable(tf.zeros([n_features,n_outputs]))
-        self.b = tf.Variable(tf.zeros([n_outputs]))
-        self.y = tf.nn.softmax(tf.matmul(self.x, self.w) + self.b)
-        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=self.y))
-        train_step = tf.train.AdamOptimizer(self.trainstep).minimize(cross_entropy)
-        self.session.run(tf.global_variables_initializer())
+        self.iterations = iterations
         
+    def _create_graph(self):
+        self.w = tf.Variable(tf.random_normal([self.feature_shape[0],self.n_outputs],stddev=0.5,seed = self.random_state))
+        self.b = tf.Variable(tf.random_normal([self.n_outputs],stddev=0.5,seed = self.random_state))
+    def _predict_step(self):
+        return tf.nn.softmax(tf.matmul(self.x, self.w) + self.b)
 
-        for i in range(self.iterations):
-            print 'iteration ',i
-            train_step.run(feed_dict={self.x:data.astype(float),y_:bin_targets.astype(float)})
-        self.isfitted = True
+    def _train_step(self):
+        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))
+        return tf.train.AdamOptimizer(0.5).minimize(self.loss)
 
-    def predict_proba(self,data):
-        print self.session.run([self.w,self.b])
-        if not self.isfitted:
-            print 'not fitted'
-            return
-        
-        return self.session.run(self.y,feed_dict={self.x:data.astype(float)})
-    def predict(self,data):
-        if not self.isfitted:
-            print 'not fitted'
-            return
-        proba = self.predict_proba(data)
-        return self.classes_[pylab.argmax(proba,axis=1)]
-
-def test_LR():
-    N =1000
-    nclasses = 3
-    sep = 2
-    data = pylab.randn(N,2)
-    targets = pylab.zeros((N))
-    for cl in range(nclasses):
-        angle = cl * 2*pylab.pi/float(nclasses)
-        x = sep*pylab.cos(angle)
-        y = sep*pylab.sin(angle)
-        targets[cl*N/nclasses:(cl+1)*N/nclasses] = cl
-        data[cl*N/nclasses:(cl+1)*N/nclasses,0]+=x
-        data[cl*N/nclasses:(cl+1)*N/nclasses,1]+=y
-
-    lr = LR()
-
-    lr.fit(data,targets)
-
-    predictions = lr.predict(data)
     
-    for t in pylab.unique(targets):
-        pylab.plot(data[targets==t,0],data[targets==t,1],'o')
-        
-    print (predictions == targets).mean()
-    pylab.show()
+
+ 
+
+
 
 class TextConvNet:
     def __init__(self,filter_sizes = [2,3,4,5],n_filters = 20,n_hidden = 100,batchsize = 100,dropout=0.5, l2_reg_lambda=0.0,valid_frac = 0.05,iterations = 10000,evaluate_every = 100,print_every = 100,n_jobs=1):
@@ -210,7 +196,7 @@ class TextConvNet:
         
         
         
-        self.isfitted = False
+        self.is_fitted = False
 
         self.classes_ = None
     
@@ -354,16 +340,16 @@ class TextConvNet:
                 print("\nEvaluation:")
                 dev_step(test_data[:,:,:,None],test_targets)
                 print("")
-        self.isfitted = True
+        self.is_fitted = True
     def predict_proba(self,data):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         scores =  self.session.run(self.scores,feed_dict = {self.x: data[:,:,:,None],self.dropout_keep_prob: 1.})
         scores = pylab.exp(scores)
         return scores/scores.sum(axis=1)[:,None]
     def predict(self,data):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         proba = self.predict_proba(data)
@@ -429,7 +415,7 @@ class EmbeddingTextConvNet:
         
         
         
-        self.isfitted = False
+        self.is_fitted = False
 
         self.classes_ = None
     
@@ -587,9 +573,9 @@ class EmbeddingTextConvNet:
                 print("\nEvaluation:")
                 dev_step(test_data,test_targets)
                 print("")
-        self.isfitted = True
+        self.is_fitted = True
     def predict_proba(self,data):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         # make sure that no unseen words are passed to the embedding layer
@@ -598,7 +584,7 @@ class EmbeddingTextConvNet:
         scores = pylab.exp(scores)
         return scores/scores.sum(axis=1)[:,None]
     def predict(self,data):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         proba = self.predict_proba(data)
@@ -644,7 +630,7 @@ class DeepTextConvNet:
         
         
         
-        self.isfitted = False
+        self.is_fitted = False
 
         self.classes_ = None
     
@@ -796,16 +782,16 @@ class DeepTextConvNet:
                 print("\nEvaluation:")
                 dev_step(test_data[:,:,:,None],test_targets)
                 print("")
-        self.isfitted = True
+        self.is_fitted = True
     def predict_proba(self,data):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         scores =  self.session.run(self.scores,feed_dict = {self.x: data[:,:,:,None],self.dropout_keep_prob: 1.})
         scores = pylab.exp(scores)
         return scores/scores.sum(axis=1)[:,None]
     def predict(self,data):
-        if not self.isfitted:
+        if not self.is_fitted:
             print 'not fitted'
             return
         proba = self.predict_proba(data)
