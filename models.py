@@ -10,7 +10,8 @@ import datetime
 import tensorflow as tf
 from sklearn.preprocessing import LabelBinarizer
 
-
+class TFBaseEstimator:
+    pass
 
 
 class LR:
