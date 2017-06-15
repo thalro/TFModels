@@ -2,6 +2,10 @@
     code adapted from https://github.com/dennybritz/cnn-text-classification-tf
     """
 
+from random import choice
+from string import ascii_lowercase,digits
+
+
 
 import numpy as np
 import pylab
@@ -9,12 +13,89 @@ import datetime
 
 import tensorflow as tf
 from sklearn.preprocessing import LabelBinarizer
+from sklearn.base import BaseEstimator,ClassifierMixin
 
-class TFBaseEstimator:
-    pass
+class TFBaseEstimator(BaseEstimator):
+    def __init__(self):
+
+        self.train_step = None
+        self.predict_step = None
+        self.is_fitted = False
+        self._var_scope = None
+        self.session = tf.InteractiveSession()
+    
+    def _get_var_scope(self):
+        """ Create a unique string for the variable scope 
+            This is to enable several instantiations of the 
+            same class without variable conflicts"""
+        if self._var_scope is None:
+            self._var_scope = type(self).__name__+ '_'+''.join(choice(ascii_lowercase+digits) for i in range(10))
+        return self._var_scope
 
 
-class LR:
+
+class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
+    """ a base class for classifier models. 
+        this class cannot be instantiated.
+        """
+
+    def __init__(self):
+        super(TFBaseClassifier,self).__init__()
+         
+        self.classes_ = None
+        self.x = None
+        self.y_ = None
+        
+
+    def fit(self,X,y):
+        self.classes_ = np.unique(targets)
+        # targets need to be binarized
+        lb = LabelBinarizer()
+        bin_targets = lb.fit_transform(targets)
+        if bin_targets.shape[1]==1:
+            bin_targets = pylab.concatenate([1-bin_targets,bin_targets],axis = 1)
+        n_outputs = bin_targets.shape[1]
+        n_features = data.shape[1]
+        # place holder for the input and output
+        self.x = tf.placeholder(tf.float32,[None,n_features])
+        self.y_ = tf.placeholder(tf.float32,[None,n_outputs])
+        # op for prediction_step
+        self.predict_step = self._predict_step()
+        # op for train step
+        self.train_step = self._train_step()
+        # initialize variables
+        self.session.run(tf.global_variables_initializer())
+        # run the training
+        self._train_loop()
+
+        self.isfitted = True
+
+        return self
+    
+    def predict_proba(self,X):
+        if not self.isfitted:
+            print 'not fitted'
+            return
+        
+        return self.session.run(self.predict_step,feed_dict={self.x:X.astype(float)})
+    
+    def predict(self,X):
+        if not self.isfitted:
+            print 'not fitted'
+            return
+        proba = self.predict_proba(X)
+        return self.classes_[pylab.argmax(proba,axis=1)]
+    def _predict_step(self):
+        # this needs to be filled
+        pass
+    def _train_step(self):
+        # this needs to be filled
+        pass
+    def _train_loop(self):
+        # this needs to be filled
+        pass
+
+class LR_old:
     def __init__(self,iterations = 1000,trainstep = 0.5):
         self.iterations  =iterations
         self.trainstep = trainstep
