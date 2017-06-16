@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-
+import os
 
 class TestLR(unittest.TestCase):
     """ this tests the basic functionality of classifiers
@@ -23,6 +23,7 @@ class TestLR(unittest.TestCase):
         lr = LR(iterations =None)
         lr.fit(X, y)
         self.assertEqual(lr.score(X,y), 1.)
+
     
     def test_loop_reinit(self):
         """ during cross validation, the same model
@@ -66,20 +67,21 @@ class TestLR(unittest.TestCase):
         self.assertTrue(np.allclose(p1,p2))
         self.assertFalse(np.allclose(p1,p3))
         self.assertFalse(np.allclose(p1,p4))
-
+        np.random.seed(None)
          
     def test_warm_start(self):
         
         """ LR should give perfect performance on separable data. """
         from models import LogisticRegression as LR
-
+        
         
         X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
-
+        
         lr = LR(iterations =None)
         lr.fit(X, y)
+
         self.assertEqual(lr.score(X,y), 1.)    
 
         lr.iterations = 0
@@ -89,6 +91,37 @@ class TestLR(unittest.TestCase):
         
         lr.fit(X, y,warm_start=False)
         self.assertTrue(lr.score(X,y)<1.)   
+
+    def test_save_load(self):
+
+        from models import LogisticRegression as LR
+
+        X = np.random.rand(100,2)
+        y = np.random.randint(0,2,100)
+
+        
+
+        lr = LR()
+        lr.fit(X, y)
+        y1 = lr.predict_proba(X)
+        tmpfile = 'tempsave'
+
+        lr.save(tmpfile)
+        
+        
+        lr2 = LR()
+
+        lr2.load(tmpfile)
+        y2 = lr.predict_proba(X)
+
+        self.assertTrue(np.allclose(y1,y2))
+
+        os.remove(tmpfile+'.pickle')
+
+
+
+
+
 
 
 
