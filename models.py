@@ -10,6 +10,8 @@ from string import ascii_lowercase,digits
 import numpy as np
 import pylab
 import datetime
+import cPickle as pickle
+from copy import deepcopy
 
 import tensorflow as tf
 from sklearn.preprocessing import LabelBinarizer
@@ -22,19 +24,38 @@ class TFBaseEstimator(BaseEstimator):
         self.is_fitted = False
         self._var_scope = None
         self.session = tf.Session()
-    
-    def _get_var_scope(self):
-        """ Create a unique string for the variable scope 
-            This is to enable several instantiations of the 
-            same class without variable conflicts"""
-        if self._var_scope is None:
-            self._var_scope = type(self).__name__+ '_'+''.join(choice(ascii_lowercase+digits) for i in range(10))
-        return self._var_scope
+        self.tf_vars = {}
 
+    # def _get_var_scope(self):
+    #     """ Create a unique string for the variable scope 
+    #         This is to enable several instantiations of the 
+    #         same class without variable conflicts"""
+    #     if self._var_scope is None:
+    #         self._var_scope = type(self).__name__+ '_'+''.join(choice(ascii_lowercase+digits) for i in range(10))
+    #     return self._var_scope
+    def save(self,fname):
+        
+        tf_vars = {}
+        for var in self.tf_vars.keys():
+            tf_vars[var] = self.session.run(self.tf_vars[var])
+
+        params = self.get_params()
+
+        pickle.dump((params,tf_vars,self.is_fitted), open(fname+'.pickle','w'),protocol = 2)
+        
+
+    def load(self,fname):
+        params,tf_vars,is_fitted = pickle.load(open(fname+'.pickle'))
+        self.set_params(**params)
+        for k in tf_vars.keys():
+            self.tf_vars[k] = tf.Variable(tf_vars[k])
+        self.if_fitted = is_fitted
+
+    
     def __del__(self):
         self.session.close()
         del self.session
-
+        
 
 class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
     """ a base class for classifier models. 
@@ -52,6 +73,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.warm_start = False
         self.random_state = random_state
         self.learning_rate = learning_rate
+        
         
 
     def fit(self,X,y,warm_start = False):
@@ -131,23 +153,24 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
     def _train_step(self):
         # this needs to be filled
         raise NotImplementedError
+
+    
     
 
 class LogisticRegression(TFBaseClassifier):
     def __init__(self,C = 1.,random_state = None,iterations = 1000,learning_rate=0.5):
         super(LogisticRegression,self).__init__(random_state=random_state,learning_rate=learning_rate)
         self.C = C
-        self.w = None
-        self.b = None
         self.iterations = iterations
         
     def _create_graph(self):
-        self.w = tf.Variable(tf.random_normal([self.feature_shape[0],self.n_outputs],stddev=0.5,seed = self.random_state))
-        self.b = tf.Variable(tf.random_normal([self.n_outputs],stddev=0.5,seed = self.random_state))
+        self.tf_vars['w'] = tf.Variable(tf.random_normal([self.feature_shape[0],self.n_outputs],stddev=0.5,seed = self.random_state))
+        self.tf_vars['b'] = tf.Variable(tf.random_normal([self.n_outputs],stddev=0.5,seed = self.random_state))
     def _predict_step(self):
-        return tf.nn.softmax(tf.matmul(self.x, self.w) + self.b)
+        return tf.nn.softmax(tf.matmul(self.x, self.tf_vars['w']) + self.tf_vars['b'])
 
     def _train_step(self):
+
         self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))
         return tf.train.AdamOptimizer(0.5).minimize(self.loss)
 
