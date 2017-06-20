@@ -80,7 +80,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         lb = LabelBinarizer()
         bin_y = lb.fit_transform(y)
         if bin_y.shape[1]==1:
-            bin_y = pylab.concatenate([1-bin_y,bin_y],axis = 1)
+            bin_y = np.concatenate([1-bin_y,bin_y],axis = 1)
         self.n_outputs = bin_y.shape[1]
         self.feature_shape = list(X.shape[1:])
         # place holder for the input and output
@@ -117,7 +117,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             print 'not fitted'
             return
         proba = self.predict_proba(X)
-        return self.classes_[pylab.argmax(proba,axis=1)]
+        return self.classes_[np.argmax(proba,axis=1)]
     
     def _train_loop(self,X,y):
         iteration = 0
