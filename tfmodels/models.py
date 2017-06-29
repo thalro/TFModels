@@ -2,8 +2,7 @@
     code adapted from https://github.com/dennybritz/cnn-text-classification-tf
     """
 
-from random import choice
-from string import ascii_lowercase,digits
+
 
 
 
@@ -27,10 +26,11 @@ from .base import TFBaseEstimator,TFBaseClassifier
     
 
 class LogisticRegression(TFBaseClassifier):
-    def __init__(self,C = 1.,random_state = None,iterations = 1000,learning_rate=0.5):
-        super(LogisticRegression,self).__init__(random_state=random_state,learning_rate=learning_rate)
+    def __init__(self,C = 0.,random_state = None,iterations = 1000,learning_rate=0.5):
+        super(LogisticRegression,self).__init__(random_state=random_state,learning_rate=learning_rate,iterations = iterations)
+        if C!=0:
+            print 'warning: regularization not yet implemented'
         self.C = C
-        self.iterations = iterations
         
     def _create_graph(self):
         self.tf_vars['w'] = tf.Variable(tf.random_normal([self.feature_shape[0],self.n_outputs],stddev=0.5,seed = self.random_state))
@@ -49,8 +49,12 @@ class LogisticRegression(TFBaseClassifier):
 
 
 
-class TextConvNet:
-    def __init__(self,filter_sizes = [2,3,4,5],n_filters = 20,n_hidden = 100,batchsize = 100,dropout=0.5, l2_reg_lambda=0.0,valid_frac = 0.05,iterations = 10000,evaluate_every = 100,print_every = 100,n_jobs=1):
+class TextConvNet(TFBaseClassifier):
+    def __init__(self,filter_sizes = [2,3,4,5],n_filters = 20,n_hidden = 100,batchsize = 100,dropout=0.5,
+                 l2_reg_lambda=0.0,valid_frac = 0.05,iterations = 10000,evaluate_every = 100,print_every = 100,
+                 n_jobs=1,random_state = None,learning_rate = 0.1):
+        super(TextConvNet,self).__init__(random_state=random_state,learning_rate=learning_rate,iterations = iterations)
+        
         self.filter_sizes = filter_sizes
         self.n_filters = n_filters
         self.n_hidden = n_hidden
@@ -246,24 +250,8 @@ class TextConvNet:
             return
         proba = self.predict_proba(data)
         return self.classes_[pylab.argmax(proba,axis=1)]        
-class BatchIndGernerator:
-    def __init__(self, batchsize,N,iterations):
-        self.batchsize = batchsize
-        self.N = N
-        self.iterations = iterations
-        self.currentiteration = 0
 
-    def __iter__(self):
-        return self
 
-    def next(self):
-        if self.currentiteration > self.iterations:
-            raise StopIteration
-        else:
-            self.currentiteration += 1
-            inds = pylab.arange(self.N)
-            pylab.shuffle(inds)
-            return inds[:self.batchsize]
 
 
 class EmbeddingTextConvNet:

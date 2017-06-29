@@ -8,22 +8,48 @@ from sklearn.preprocessing import LabelBinarizer
 
 import tensorflow as tf
 
+
+class BatchIndGernerator:
+    def __init__(self, batchsize,N,iterations):
+        
+        if batchsize is None:
+            self.batchsize = N
+        else:
+            self.batchsize = batchsize
+
+        self.N = N
+        self.iterations = iterations
+        self.currentiteration = 0
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.iterations is not None and self.currentiteration > self.iterations:
+            raise StopIteration
+        else:
+            self.currentiteration += 1
+            inds = np.arange(self.N)
+            np.random.shuffle(inds)
+            return inds[:self.batchsize]
+
+
 class TFBaseEstimator(BaseEstimator):
-    def __init__(self):
+    def __init__(self,n_jobs = 1):
         self.train_step = None
         self.predict_step = None
         self.is_fitted = False
         self._var_scope = None
-        self.session = tf.Session()
         self.tf_vars = {}
 
-    # def _get_var_scope(self):
-    #     """ Create a unique string for the variable scope 
-    #         This is to enable several instantiations of the 
-    #         same class without variable conflicts"""
-    #     if self._var_scope is None:
-    #         self._var_scope = type(self).__name__+ '_'+''.join(choice(ascii_lowercase+digits) for i in range(10))
-    #     return self._var_scope
+        if n_jobs!=-1:
+            config = tf.ConfigProto(intra_op_parallelism_threads=n_jobs, inter_op_parallelism_threads=n_jobs, \
+                        allow_soft_placement=True, device_count = {'CPU': n_jobs})
+            self.session = tf.Session(config=config)
+        else:
+            self.session = tf.Session()
+
+    
     def save(self,fname):
         
         tf_vars = {}
@@ -50,11 +76,11 @@ class TFBaseEstimator(BaseEstimator):
 
 class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
     """ a base class for classifier models. 
-        this class cannot be instantiated.
+        this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.5):
-        super(TFBaseClassifier, self).__init__() 
+    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,n_jobs = 1,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10):
+        super(TFBaseClassifier, self).__init__(n_jobs = n_jobs) 
         self.classes_ = None
         self.x = None
         self.y_ = None
@@ -64,6 +90,10 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.warm_start = False
         self.random_state = random_state
         self.learning_rate = learning_rate
+        self.iterations = iterations
+        self.batchsize = batchsize
+        self.num_loss_averages = num_loss_averages
+        self.calc_loss_interval = calc_loss_interval
         
         
 
@@ -121,19 +151,21 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
     
     def _train_loop(self,X,y):
         iteration = 0
-        losses = [10000.] * 5#self.num_loss_averages
-        while True:
-            if self.iterations is not None and iteration>=self.iterations:
-                break
-            self.session.run(self.train_step,feed_dict = {self.x:X,self.y:y})
+        losses = [10000.] * self.num_loss_averages
+        
+        for batch in BatchIndGernerator(self.batchsize, X.shape[0], self.iterations):
+            
+           
+            self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
             iteration += 1
             
-            if self.iterations is None and iteration%10 ==0:
+            if self.iterations is None and iteration%self.calc_loss_interval ==0:
                 
-                loss = self.session.run(self.loss,feed_dict = {self.x:X,self.y:y})
+                loss = self.session.run(self.loss,feed_dict = {self.x:X[batch],self.y:y[batch]})
                 losses = [loss] + losses[:-1]
                 if np.diff(losses).max()<min(losses)/100.:
                     break
+    
     def _create_graph(self):
         # this needs to be filled
         raise NotImplementedError
