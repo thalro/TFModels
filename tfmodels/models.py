@@ -553,23 +553,7 @@ class DeepTextConvNet:
         proba = self.predict_proba(data)
         return self.classes_[pylab.argmax(proba,axis=1)]  
 
-if __name__ == '__main__':
-    import data
-    from score import balanced_accuracy as score
-    from sklearn.cross_validation import StratifiedKFold
-    data,targets,test = data.get_compact_vector_data()
-    
 
-    predictions = pylab.zeros_like(targets)
-    i=0
-    for train,test in StratifiedKFold(targets,n_folds = 3):
-        print 'fold ',i
-        i+=1
-        print data[train].shape,targets[train].shape
-        tcn = DeepTextConvNet(iterations = 1000)
-        tcn.fit(data[train], targets[train])
-        predictions[test] = tcn.predict(data[test])
 
-    print score(predictions, targets)
-      
+
     
