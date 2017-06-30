@@ -2,27 +2,250 @@ import unittest
 import numpy as np
 import os
 
-class TestLR(unittest.TestCase):
+# class TestLR(unittest.TestCase):
+#     """ this tests the basic functionality of classifiers
+#         using LogisticRegression as an Example."""
+
+#     def test_import_and_init(self):
+#         from models import LogisticRegression as LR
+
+#         lr = LR()
+
+#     def test_2D_separable(self):
+#         """ LR should give perfect performance on separable data. """
+#         from models import LogisticRegression as LR
+
+        
+#         X = np.random.rand(100,2)
+#         y = np.random.randint(0,2,100)
+#         X[y==1] += 2
+
+#         lr = LR(iterations =None,learning_rate = 1.)
+#         lr.fit(X, y)
+#         self.assertEqual(lr.score(X,y), 1.)
+
+    
+#     def test_loop_reinit(self):
+#         """ during cross validation, the same model
+#             will be initialized several times.
+#             """
+
+#         from models import LogisticRegression as LR
+#         from sklearn.model_selection import StratifiedKFold
+#         X = np.random.rand(100,2)
+#         y = np.random.randint(0,2,100)
+        
+#         pred = np.zeros_like(y).astype(float)
+#         xval = StratifiedKFold(n_splits=3)
+#         for train,test in xval.split(X,y):
+#             lr = LR()
+#             lr.fit(X[train],y[train])
+#             pred = lr.predict_proba(X[test])[:,1]
+        
+#     def test_random_state_consistency(self):
+#         from models import LogisticRegression as LR
+
+#         X = np.random.rand(100,2)
+#         y = np.random.randint(0,2,100)
+
+#         lr = LR(random_state = 1,iterations = 1)
+#         lr.fit(X, y)
+#         p1 = lr.predict_proba(X)
+        
+#         lr = LR(random_state = 1,iterations = 1)
+#         lr.fit(X, y)
+#         p2 = lr.predict_proba(X)
+
+#         lr = LR(random_state = 2,iterations = 1)
+#         lr.fit(X, y)
+#         p3 = lr.predict_proba(X)
+
+#         lr = LR(random_state = None,iterations = 1)
+#         lr.fit(X, y)
+#         p4 = lr.predict_proba(X)
+
+#         self.assertTrue(np.allclose(p1,p2))
+#         self.assertFalse(np.allclose(p1,p3))
+#         self.assertFalse(np.allclose(p1,p4))
+#         np.random.seed(None)
+         
+#     def test_warm_start(self):
+        
+#         """ LR should give perfect performance on separable data. """
+#         from models import LogisticRegression as LR
+        
+        
+#         X = np.random.rand(100,2)
+#         y = np.random.randint(0,2,100)
+#         X[y==1] += 2
+        
+#         lr = LR(iterations =None,learning_rate = 0.1)
+#         lr.fit(X, y)
+
+#         self.assertEqual(lr.score(X,y), 1.)    
+
+#         lr.iterations = 0
+
+#         lr.fit(X, y,warm_start=True)
+#         self.assertEqual(lr.score(X,y), 1.)   
+        
+#         lr.fit(X, y,warm_start=False)
+#         self.assertTrue(lr.score(X,y)<1.)   
+
+#     def test_save_load(self):
+
+#         from models import LogisticRegression as LR
+
+#         X = np.random.rand(100,2)
+#         y = np.random.randint(0,2,100)
+
+        
+
+#         lr = LR()
+#         lr.fit(X, y)
+#         y1 = lr.predict_proba(X)
+#         tmpfile = 'tempsave'
+
+#         lr.save(tmpfile)
+        
+        
+#         lr2 = LR()
+
+#         lr2.load(tmpfile)
+#         y2 = lr.predict_proba(X)
+
+#         self.assertTrue(np.allclose(y1,y2))
+
+#         os.remove(tmpfile+'.pickle')
+
+
+# class TestTextConvNet(unittest.TestCase):
+#     def test_import_and_init(self):
+#         from models import TextConvNet as TCN
+
+#         tcn = TCN()
+
+#     def test_loop_reinit(self):
+#         """ during cross validation, the same model
+#             will be initialized several times.
+#             """
+
+#         from models import TextConvNet as TCN
+
+        
+#         from sklearn.model_selection import StratifiedKFold
+#         X = np.random.rand(20,10,5)
+#         y = np.random.randint(0,2,20)
+        
+#         pred = np.zeros_like(y).astype(float)
+#         xval = StratifiedKFold(n_splits=2)
+#         for train,test in xval.split(X,y):
+#             tcn = TCN(filter_sizes = [2,3],n_filters = 3,n_hidden= 10,iterations  =5)
+#             tcn.fit(X[train],y[train])
+#             pred = tcn.predict_proba(X[test])[:,1]
+
+#     def test_save_load(self):
+
+#         from models import TextConvNet as TCN
+
+#         X = np.random.rand(100,5,2)
+#         y = np.random.randint(0,2,100)
+
+        
+
+#         tcn = TCN()
+#         tcn.fit(X, y)
+#         y1 = tcn.predict_proba(X)
+#         tmpfile = 'tempsave'
+
+#         tcn.save(tmpfile)
+        
+        
+#         tcn2 = TCN()
+
+#         tcn2.load(tmpfile)
+#         y2 = tcn.predict_proba(X)
+
+#         self.assertTrue(np.allclose(y1,y2))
+
+#         os.remove(tmpfile+'.pickle')
+
+#     def test_random_state_consistency(self):
+#         from models import TextConvNet as TCN
+
+#         X = np.random.rand(100,5,2)
+#         y = np.random.randint(0,2,100)
+
+#         tcn = TCN(random_state = 1,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
+#         tcn.fit(X, y)
+#         p1 = tcn.predict_proba(X)
+#         v1  = tcn.get_tf_vars_as_ndarrays()
+        
+#         tcn = TCN(random_state = 1,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
+#         tcn.fit(X, y)
+#         p2 = tcn.predict_proba(X)
+
+#         v2 = tcn.get_tf_vars_as_ndarrays()
+
+#         tcn = TCN(random_state = 2,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
+#         tcn.fit(X, y)
+#         p3 = tcn.predict_proba(X)
+
+#         tcn = TCN(random_state = None,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
+#         tcn.fit(X, y)
+#         p4 = tcn.predict_proba(X)
+
+#         self.assertTrue(np.allclose(p1,p2))
+#         self.assertFalse(np.allclose(p1,p3))
+#         self.assertFalse(np.allclose(p1,p4))
+#         np.random.seed(None)
+         
+#     def test_warm_start(self):
+        
+#         """ TCN should give perfect performance on separable data. """
+#         from models import TextConvNet as TCN
+        
+        
+#         X = np.random.rand(100,5,2)
+#         y = np.random.randint(0,2,100)
+#         X[y==1] += 2
+        
+#         tcn = TCN(iterations =10,learning_rate = 0.5)
+#         tcn.fit(X, y)
+
+#         score = tcn.score(X , y)
+
+#         tcn.iterations = 0
+
+#         tcn.fit(X, y,warm_start=True)
+#         self.assertEqual(tcn.score(X,y), score)   
+        
+#         tcn.fit(X, y,warm_start=False)
+#         self.assertTrue(tcn.score(X,y)!=score)
+
+
+
+class TestDNN(unittest.TestCase):
     """ this tests the basic functionality of classifiers
         using LogisticRegression as an Example."""
 
     def test_import_and_init(self):
-        from models import LogisticRegression as LR
+        from models import DenseNeuralNet as DNN
 
-        lr = LR()
+        dnn = DNN()
 
     def test_2D_separable(self):
-        """ LR should give perfect performance on separable data. """
-        from models import LogisticRegression as LR
+        """ DNN should give perfect performance on separable data. """
+        from models import DenseNeuralNet as DNN
 
         
         X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
-        lr = LR(iterations =None,learning_rate = 0.1)
-        lr.fit(X, y)
-        self.assertEqual(lr.score(X,y), 1.)
+        dnn = DNN(n_hiddens = [10,10],batch_normalisation=True,dropout = 0.1,iterations =500,learning_rate = 0.3)
+        dnn.fit(X, y)
+        self.assertEqual(dnn.score(X,y), 1.)
 
     
     def test_loop_reinit(self):
@@ -30,7 +253,7 @@ class TestLR(unittest.TestCase):
             will be initialized several times.
             """
 
-        from models import LogisticRegression as LR
+        from models import DenseNeuralNet as DNN
         from sklearn.model_selection import StratifiedKFold
         X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
@@ -38,31 +261,31 @@ class TestLR(unittest.TestCase):
         pred = np.zeros_like(y).astype(float)
         xval = StratifiedKFold(n_splits=3)
         for train,test in xval.split(X,y):
-            lr = LR()
-            lr.fit(X[train],y[train])
-            pred = lr.predict_proba(X[test])[:,1]
+            dnn = DNN()
+            dnn.fit(X[train],y[train])
+            pred = dnn.predict_proba(X[test])[:,1]
         
     def test_random_state_consistency(self):
-        from models import LogisticRegression as LR
+        from models import DenseNeuralNet as DNN
 
         X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
 
-        lr = LR(random_state = 1,iterations = 1)
-        lr.fit(X, y)
-        p1 = lr.predict_proba(X)
+        dnn = DNN(random_state = 1,iterations = 1)
+        dnn.fit(X, y)
+        p1 = dnn.predict_proba(X)
         
-        lr = LR(random_state = 1,iterations = 1)
-        lr.fit(X, y)
-        p2 = lr.predict_proba(X)
+        dnn = DNN(random_state = 1,iterations = 1)
+        dnn.fit(X, y)
+        p2 = dnn.predict_proba(X)
 
-        lr = LR(random_state = 2,iterations = 1)
-        lr.fit(X, y)
-        p3 = lr.predict_proba(X)
+        dnn = DNN(random_state = 2,iterations = 1)
+        dnn.fit(X, y)
+        p3 = dnn.predict_proba(X)
 
-        lr = LR(random_state = None,iterations = 1)
-        lr.fit(X, y)
-        p4 = lr.predict_proba(X)
+        dnn = DNN(random_state = None,iterations = 1)
+        dnn.fit(X, y)
+        p4 = dnn.predict_proba(X)
 
         self.assertTrue(np.allclose(p1,p2))
         self.assertFalse(np.allclose(p1,p3))
@@ -71,161 +294,52 @@ class TestLR(unittest.TestCase):
          
     def test_warm_start(self):
         
-        """ LR should give perfect performance on separable data. """
-        from models import LogisticRegression as LR
+        """ DNN should give perfect performance on separable data. """
+        from models import DenseNeuralNet as DNN
         
         
         X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
         
-        lr = LR(iterations =None,learning_rate = 0.1)
-        lr.fit(X, y)
+        dnn = DNN(iterations =500,learning_rate = 0.2,n_hiddens = [])
+        dnn.fit(X, y)
 
-        self.assertEqual(lr.score(X,y), 1.)    
+        self.assertEqual(dnn.score(X,y), 1.)    
 
-        lr.iterations = 0
+        dnn.iterations = 0
 
-        lr.fit(X, y,warm_start=True)
-        self.assertEqual(lr.score(X,y), 1.)   
+        dnn.fit(X, y,warm_start=True)
+        self.assertEqual(dnn.score(X,y), 1.)   
         
-        lr.fit(X, y,warm_start=False)
-        self.assertTrue(lr.score(X,y)<1.)   
+        dnn.fit(X, y,warm_start=False)
+        self.assertTrue(dnn.score(X,y)<1.)   
 
     def test_save_load(self):
 
-        from models import LogisticRegression as LR
+        from models import DenseNeuralNet as DNN
 
         X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
 
         
 
-        lr = LR()
-        lr.fit(X, y)
-        y1 = lr.predict_proba(X)
+        dnn = DNN()
+        dnn.fit(X, y)
+        y1 = dnn.predict_proba(X)
         tmpfile = 'tempsave'
 
-        lr.save(tmpfile)
+        dnn.save(tmpfile)
         
         
-        lr2 = LR()
+        dnn2 = DNN()
 
-        lr2.load(tmpfile)
-        y2 = lr.predict_proba(X)
+        dnn2.load(tmpfile)
+        y2 = dnn.predict_proba(X)
 
         self.assertTrue(np.allclose(y1,y2))
 
         os.remove(tmpfile+'.pickle')
-
-
-class TestTextConvNet(unittest.TestCase):
-    def test_import_and_init(self):
-        from models import TextConvNet as TCN
-
-        tcn = TCN()
-
-    def test_loop_reinit(self):
-        """ during cross validation, the same model
-            will be initialized several times.
-            """
-
-        from models import TextConvNet as TCN
-
-        
-        from sklearn.model_selection import StratifiedKFold
-        X = np.random.rand(20,10,5)
-        y = np.random.randint(0,2,20)
-        
-        pred = np.zeros_like(y).astype(float)
-        xval = StratifiedKFold(n_splits=2)
-        for train,test in xval.split(X,y):
-            tcn = TCN(filter_sizes = [2,3],n_filters = 3,n_hidden= 10,iterations  =5)
-            tcn.fit(X[train],y[train])
-            pred = tcn.predict_proba(X[test])[:,1]
-
-    def test_save_load(self):
-
-        from models import TextConvNet as TCN
-
-        X = np.random.rand(100,5,2)
-        y = np.random.randint(0,2,100)
-
-        
-
-        tcn = TCN()
-        tcn.fit(X, y)
-        y1 = tcn.predict_proba(X)
-        tmpfile = 'tempsave'
-
-        tcn.save(tmpfile)
-        
-        
-        tcn2 = TCN()
-
-        tcn2.load(tmpfile)
-        y2 = tcn.predict_proba(X)
-
-        self.assertTrue(np.allclose(y1,y2))
-
-        os.remove(tmpfile+'.pickle')
-
-    def test_random_state_consistency(self):
-        from models import TextConvNet as TCN
-
-        X = np.random.rand(100,5,2)
-        y = np.random.randint(0,2,100)
-
-        tcn = TCN(random_state = 1,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
-        tcn.fit(X, y)
-        p1 = tcn.predict_proba(X)
-        v1  = tcn.get_tf_vars_as_ndarrays()
-        
-        tcn = TCN(random_state = 1,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
-        tcn.fit(X, y)
-        p2 = tcn.predict_proba(X)
-
-        v2 = tcn.get_tf_vars_as_ndarrays()
-
-        tcn = TCN(random_state = 2,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
-        tcn.fit(X, y)
-        p3 = tcn.predict_proba(X)
-
-        tcn = TCN(random_state = None,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
-        tcn.fit(X, y)
-        p4 = tcn.predict_proba(X)
-
-        self.assertTrue(np.allclose(p1,p2))
-        self.assertFalse(np.allclose(p1,p3))
-        self.assertFalse(np.allclose(p1,p4))
-        np.random.seed(None)
-         
-    def test_warm_start(self):
-        
-        """ TCN should give perfect performance on separable data. """
-        from models import TextConvNet as TCN
-        
-        
-        X = np.random.rand(100,5,2)
-        y = np.random.randint(0,2,100)
-        X[y==1] += 2
-        
-        tcn = TCN(iterations =10,learning_rate = 0.5)
-        tcn.fit(X, y)
-
-        score = tcn.score(X , y)
-
-        tcn.iterations = 0
-
-        tcn.fit(X, y,warm_start=True)
-        self.assertEqual(tcn.score(X,y), score)   
-        
-        tcn.fit(X, y,warm_start=False)
-        self.assertTrue(tcn.score(X,y)!=score)
-
-
-
-
 
 
 

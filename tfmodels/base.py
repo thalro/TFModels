@@ -83,7 +83,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,batchsize = None,num_loss_averages = 10,calc_loss_interval= 5,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -99,12 +99,15 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.batchsize = batchsize
         self.num_loss_averages = num_loss_averages
         self.calc_loss_interval = calc_loss_interval
-        self.train_feed_dict = {}
-        self.predict_feed_dict = {}
+        self.is_training = False
         
         
 
     def fit(self,X,y,warm_start = False):
+        self.is_training = True
+        original_batchsize = self.batchsize
+        if self.batchsize is None:
+            self.batchsize = X.shape[0]
         self.warm_start = warm_start
         if self.random_state is not None:
             
@@ -140,15 +143,17 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # run the training
         self._train_loop(X,bin_y)
         self.is_fitted = True
-
+        self.is_training = False
+        self.batchsize = original_batchsize
         return self
     
     def predict_proba(self,X):
+        self.is_training = False
         if not self.is_fitted:
             print 'not fitted'
             return
-        self.predict_feed_dict.update({self.x:X.astype(float)})
-        return self.session.run(self.predict_step,feed_dict=self.predict_feed_dict)
+        prediction = tf.nn.softmax(self.predict_step)
+        return self.session.run(prediction,feed_dict={self.x:X.astype(float)})
     
     def predict(self,X):
         if not self.is_fitted:
@@ -163,15 +168,15 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         for batch in BatchIndGernerator(self.batchsize, X.shape[0], self.iterations):
             
-            self.train_feed_dict.update({self.x:X[batch],self.y:y[batch]})
-            self.session.run(self.train_step,feed_dict = self.train_feed_dict)
-            iteration += 1
             
+            self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
+            iteration += 1
             if self.iterations is None and iteration%self.calc_loss_interval ==0:
                 
-                loss = self.session.run(self._loss_func(),feed_dict = self.train_feed_dict)
+                loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
+                print loss
                 losses = [loss] + losses[:-1]
-                if np.diff(losses).max()<min(losses)/100.:
+                if np.diff(losses).max()<min(losses)/10.:
                     break
     def _loss_func(self):
         # override for more fancy stuff
