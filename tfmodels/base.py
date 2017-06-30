@@ -83,7 +83,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,batchsize = None,num_loss_averages = 10,calc_loss_interval= 5,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,batchsize = None,num_loss_averages = 10,calc_loss_interval= 5,verbose = False,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -100,6 +100,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.num_loss_averages = num_loss_averages
         self.calc_loss_interval = calc_loss_interval
         self.is_training = False
+        self.verbose = verbose
         
         
 
@@ -171,6 +172,9 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             
             self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
             iteration += 1
+            if self.verbose and iteration%self.calc_loss_interval ==0:
+                loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
+                print 'iteration ',iteration,', loss ',loss
             if self.iterations is None and iteration%self.calc_loss_interval ==0:
                 
                 loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
