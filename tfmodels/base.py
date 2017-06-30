@@ -25,7 +25,9 @@ class BatchIndGernerator:
         return self
 
     def next(self):
-        if self.iterations is not None and self.currentiteration > self.iterations:
+        if self.iterations == 0 or \
+           self.iterations is not None and self.currentiteration > self.iterations:
+
             raise StopIteration
         else:
             self.currentiteration += 1
@@ -49,12 +51,14 @@ class TFBaseEstimator(BaseEstimator):
         else:
             self.session = tf.Session()
 
-    
-    def save(self,fname):
-        
+    def get_tf_vars_as_ndarrays(self):
         tf_vars = {}
         for var in self.tf_vars.keys():
             tf_vars[var] = self.session.run(self.tf_vars[var])
+        return tf_vars
+    def save(self,fname):
+        
+        tf_vars  =self.get_tf_vars_as_ndarrays()
 
         params = self.get_params()
 
@@ -79,14 +83,15 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,n_jobs = 1,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10):
-        super(TFBaseClassifier, self).__init__(n_jobs = n_jobs) 
+    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10,*kwargs):
+        super(TFBaseClassifier, self).__init__(*kwargs) 
+
         self.classes_ = None
+        self.n_classes = None
         self.x = None
         self.y_ = None
         self.feature_shape = None
         self.n_outputs = None
-        self.loss =None
         self.warm_start = False
         self.random_state = random_state
         self.learning_rate = learning_rate
@@ -94,6 +99,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.batchsize = batchsize
         self.num_loss_averages = num_loss_averages
         self.calc_loss_interval = calc_loss_interval
+        self.train_feed_dict = {}
+        self.predict_feed_dict = {}
         
         
 
@@ -106,6 +113,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
 
 
         self.classes_ = np.unique(y)
+        self.n_classes = len(self.classes_)
         # targets need to be binarized
         lb = LabelBinarizer()
         bin_y = lb.fit_transform(y)
@@ -139,8 +147,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         if not self.is_fitted:
             print 'not fitted'
             return
-        
-        return self.session.run(self.predict_step,feed_dict={self.x:X.astype(float)})
+        self.predict_feed_dict.update({self.x:X.astype(float)})
+        return self.session.run(self.predict_step,feed_dict=self.predict_feed_dict)
     
     def predict(self,X):
         if not self.is_fitted:
@@ -155,16 +163,23 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         for batch in BatchIndGernerator(self.batchsize, X.shape[0], self.iterations):
             
-           
-            self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
+            self.train_feed_dict.update({self.x:X[batch],self.y:y[batch]})
+            self.session.run(self.train_step,feed_dict = self.train_feed_dict)
             iteration += 1
             
             if self.iterations is None and iteration%self.calc_loss_interval ==0:
                 
-                loss = self.session.run(self.loss,feed_dict = {self.x:X[batch],self.y:y[batch]})
+                loss = self.session.run(self._loss_func(),feed_dict = self.train_feed_dict)
                 losses = [loss] + losses[:-1]
                 if np.diff(losses).max()<min(losses)/100.:
                     break
+    def _loss_func(self):
+        # override for more fancy stuff
+        return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))
+    def _train_step(self):
+        #override for more fancy stuff
+        loss = self._loss_func() 
+        return tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
     
     def _create_graph(self):
         # this needs to be filled
@@ -173,6 +188,4 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
     def _predict_step(self):
         # this needs to be filled
         raise NotImplementedError
-    def _train_step(self):
-        # this needs to be filled
-        raise NotImplementedError
+   
