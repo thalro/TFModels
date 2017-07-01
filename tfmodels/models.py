@@ -66,7 +66,7 @@ class TextConvNet(TFBaseClassifier):
         self.h_pool_flat = None 
         self.h_drop= None
         self.h = None
-        self.dropout_keep_prob = tf.placeholder(tf.tfDtype)
+        self.dropout_keep_prob = tf.placeholder(tfDtype)
         self.scores = None
         self.loss = None
         self.predictions = None

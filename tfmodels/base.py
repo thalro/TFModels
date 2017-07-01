@@ -214,7 +214,6 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             if self.iterations is None and iteration%self.calc_loss_interval ==0:
                 
                 loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
-                print loss
                 losses = [loss] + losses[:-1]
                 if np.diff(losses).max()<min(losses)/10.:
                     break
