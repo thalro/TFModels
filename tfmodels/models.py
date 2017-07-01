@@ -141,7 +141,7 @@ class DenseNeuralNet(TFBaseClassifier):
     def _create_graph(self):
         last_layer = self.feature_shape[0]
         for i,n_hidden in enumerate(self.n_hiddens):
-            self.tf_vars['w_hidden'+str(i)] =  tf.Variable(tf.truncated_normal([last_layer,n_hidden],stddev=0.1,seed = self.random_state),dtype = dtype)
+            self.tf_vars['w_hidden'+str(i)] =  tf.Variable(tf.random_normal([last_layer,n_hidden],stddev=0.1,seed = self.random_state),dtype = dtype)
             self.tf_vars['b_hidden'+str(i)] =  tf.Variable(tf.constant(0.1,shape = [n_hidden]),dtype = dtype)
             if self.batch_normalisation:
                 self.tf_vars['gamma'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = dtype)
