@@ -71,8 +71,9 @@ class TestLR(unittest.TestCase):
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
-        lr = LR(iterations =None,learning_rate = 1.)
+        lr = LR(iterations =100,learning_rate = 1.)
         lr.fit(X, y)
+        
         self.assertEqual(lr.score(X,y), 1.)
 
     
@@ -167,7 +168,11 @@ class TestLR(unittest.TestCase):
 
         self.assertTrue(np.allclose(y1,y2))
 
-        os.remove(tmpfile+'.pickle')
+        
+
+        session_files = [f for f in os.listdir('.') if tmpfile in f]
+        for f in session_files:
+            os.remove(f)
 
 
 class TestTextConvNet(unittest.TestCase):
@@ -219,7 +224,9 @@ class TestTextConvNet(unittest.TestCase):
 
         self.assertTrue(np.allclose(y1,y2))
 
-        os.remove(tmpfile+'.pickle')
+        session_files = [f for f in os.listdir('.') if tmpfile in f]
+        for f in session_files:
+            os.remove(f)
 
     def test_random_state_consistency(self):
         from models import TextConvNet as TCN
@@ -296,7 +303,7 @@ class TestDNN(unittest.TestCase):
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
-        dnn = DNN(n_hiddens = [10,10],batch_normalisation=True,dropout = 0.1,iterations =500,learning_rate = 0.2)
+        dnn = DNN(n_hiddens = [10,10],batch_normalization=True,dropout = 0.1,iterations =500,learning_rate = 0.2)
         dnn.fit(X, y)
         self.assertEqual(dnn.score(X,y), 1.)
 
@@ -393,7 +400,9 @@ class TestDNN(unittest.TestCase):
         
         self.assertTrue(np.allclose(y1,y2))
 
-        os.remove(tmpfile+'.pickle')
+        session_files = [f for f in os.listdir('.') if tmpfile in f]
+        for f in session_files:
+            os.remove(f)
 
 
 
