@@ -27,7 +27,7 @@ y_train, y_test = y[:60000], y[60000:]
 
 # create a DNN
 dnn = DNN(n_hiddens = [500,500],batchsize =512,iterations = 10,
-          batch_normalisation=True,dropout = 0.1,verbose = True)
+          batch_normalization=True,dropout = 0.1,verbose = True)
 # fit it to the training data
 dnn.fit(X_train,y_train)
 
