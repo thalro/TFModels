@@ -181,6 +181,76 @@ class DenseNeuralNet(TFBaseClassifier):
         output_logits = tf.matmul(last_activation, self.tf_vars['w_output']) + self.tf_vars['b_output']
         return output_logits
 
+class ConvolutionalNeuralNet(TFBaseClassifier):
+
+    def __init__(self,n_filters = [10,10],filter_sizes = [[3,3],[3,3]],strides =[1,1],pooling = [2],n_hiddens = [5],dropout=0.2,batch_normalisation = True,**kwargs):
+        
+        super(ConvolutionalNeuralNet,self).__init__(**kwargs)
+        
+        self.n_filters = n_filters
+        assert len(filter_sizes)==len(n_filters):
+            raise ValueError('n_filters and filter_sizes must be lists of same length')
+
+        self.filter_sizes = filter sizes
+        assert len(strides)==len(n_filters):
+            raise ValueError('n_filters and strides must be lists of same length')
+        self.strides = strides
+        assert len(pooling)==len(n_filters)-1:
+            raise ValueError('pooling  must contain one element less than n_filters')
+        self.pooling = pooling+[None]
+        self.n_hiddens = n_hiddens
+        self.dropout = dropout
+        self.batch_normalisation = batch_normalisation
+        self.total_n_samples = 0
+
+    def _create_graph(self):
+        last_layer = self.feature_shape
+        
+            
+        for i,(n_filter,filter_size,stride,pool) in enumerate(zip(self.n_filters,self.filter_sizes,self.strides,self.pooling)):
+            
+
+        last_layer = self.n_filters[-1]
+        for i,n_hidden in enumerate(self.n_hiddens):
+            self.tf_vars['w_hidden'+str(i)] =  tf.Variable(tf.random_normal([last_layer,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+            self.tf_vars['b_hidden'+str(i)] =  tf.Variable(tf.constant(0.1,shape = [n_hidden]),dtype = tfDtype)
+            if self.batch_normalisation:
+                self.tf_vars['gamma'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+                self.tf_vars['beta'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+                self.tf_vars['mu_pop'+str(i)] = tf.Variable(tf.constant(0.,shape = [n_hidden]),dtype = tfDtype)
+                self.tf_vars['sigma_pop'+str(i)] = tf.Variable(tf.constant(0.,shape = [n_hidden]),dtype = tfDtype)
+            last_layer = n_hidden
+
+        self.tf_vars['w_output'] = tf.Variable(tf.random_normal([last_layer,self.n_outputs],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+        self.tf_vars['b_output'] = tf.Variable(tf.constant(0.1,shape = [self.n_outputs]),dtype = tfDtype)
+
+
+    def _predict_step(self):
+        if self.is_training:
+            dropout_keep_prob = 1.-self.dropout
+        else:
+            dropout_keep_prob = 1.
+        n_samples = self.x.get_shape()[0]
+        last_activation =self.x
+
+        for i in range(len(self.n_hiddens)):
+            state = tf.matmul(last_activation, self.tf_vars['w_hidden'+str(i)]) + self.tf_vars['b_hidden'+str(i)]
+            if self.batch_normalisation:
+                if self.is_training:
+                    mu,sigma = tf.nn.moments(state,axes = [0], keep_dims=True)
+                    self.tf_vars['mu_pop'+str(i)] = tf.add(self.total_n_samples*self.tf_vars['mu_pop'+str(i)],self.batchsize*mu)/float(self.total_n_samples+self.batchsize)
+                    self.tf_vars['sigma_pop'+str(i)] =tf.add(self.total_n_samples*self.tf_vars['sigma_pop'+str(i)],self.batchsize*sigma)/(self.total_n_samples+self.batchsize)
+                    
+                else:
+                    mu,sigma = self.tf_vars['mu_pop'+str(i)], self.tf_vars['sigma_pop'+str(i)]
+
+                state = tf.nn.batch_normalization(state,mu,sigma,self.tf_vars['beta'+str(i)],self.tf_vars['gamma'+str(i)],1e-6)
+            last_activation = tf.nn.relu(state)
+            last_activation = tf.nn.dropout(last_activation,dropout_keep_prob,seed = self.random_state)
+        if self.is_training:
+            self.total_n_samples += self.batchsize
+        output_logits = tf.matmul(last_activation, self.tf_vars['w_output']) + self.tf_vars['b_output']
+        return output_logits
 
 
 
