@@ -168,9 +168,9 @@ class TestLR(unittest.TestCase):
 
         self.assertTrue(np.allclose(y1,y2))
 
-        os.remove(tmpfile+'.params')
+        
 
-        session_files = [f for f in os.listdir('.') if 'session' in f]
+        session_files = [f for f in os.listdir('.') if tmpfile in f]
         for f in session_files:
             os.remove(f)
 
@@ -224,7 +224,7 @@ class TestTextConvNet(unittest.TestCase):
 
         self.assertTrue(np.allclose(y1,y2))
 
-        session_files = [f for f in os.listdir('.') if 'session' in f]
+        session_files = [f for f in os.listdir('.') if tmpfile in f]
         for f in session_files:
             os.remove(f)
 
@@ -400,7 +400,7 @@ class TestDNN(unittest.TestCase):
         
         self.assertTrue(np.allclose(y1,y2))
 
-        session_files = [f for f in os.listdir('.') if 'session' in f]
+        session_files = [f for f in os.listdir('.') if tmpfile in f]
         for f in session_files:
             os.remove(f)
 
