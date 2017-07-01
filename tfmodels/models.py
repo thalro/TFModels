@@ -104,13 +104,13 @@ class DenseNeuralNet(TFBaseClassifier):
         last_activation =self.x
 
         for i,n_hidden in enumerate(self.n_hiddens):
-            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = t.contrib.layers.xavier_initializer())
+            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
             if self.batch_normalisation:
                 linear = tf.layers.batch_normalisation(linear,axis = 0,training = self.is_training)
             activation = tf.nn.relu(linear)
             last_activation = tf.layers.dropout(activation,rate = self.droput,training = self.is_training)
 
-        output = tf.layers.dense(last_activation,self.n_ouputs,kernel_initializer = t.contrib.layers.xavier_initializer())
+        output = tf.layers.dense(last_activation,self.n_ouputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         return output
 
 
