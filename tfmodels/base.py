@@ -199,14 +199,14 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         iteration = 0
         losses = [10000.] * self.num_loss_averages
         
-        for batch,iteration in BatchIndGernerator(self.batchsize, X.shape[0], self.iterations):
+        for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], self.iterations)):
             
             
             self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
             
             if self.verbose and iteration%self.calc_loss_interval ==0:
                 loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
-                print 'iteration ',iteration,', loss ',loss
+                print 'iteration ',iteration,', batch ',i ,', loss ',loss
             if self.iterations is None and iteration%self.calc_loss_interval ==0:
                 
                 loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
