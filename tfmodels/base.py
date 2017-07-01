@@ -201,7 +201,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
     def _train_step(self):
         #override for more fancy stuff
         loss = self._loss_func() 
-        return tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        # this is needed for so that batch_normalization forks
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            train_op =  tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        return train_op
     
     def _create_graph(self):
         # this needs to be filled

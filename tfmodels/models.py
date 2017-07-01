@@ -89,13 +89,13 @@ class TextConvNet(TFBaseClassifier):
 
          
 class DenseNeuralNet(TFBaseClassifier):
-    def __init__(self,n_hiddens = [5],dropout=0.2,batch_normalisation = False,**kwargs):
+    def __init__(self,n_hiddens = [5],dropout=0.2,batch_normalization = False,**kwargs):
         
         super(DenseNeuralNet,self).__init__(**kwargs)
 
         self.n_hiddens = n_hiddens
         self.dropout = dropout
-        self.batch_normalisation = batch_normalisation
+        self.batch_normalization = batch_normalization
         self.total_n_samples = 0
 
     
@@ -105,23 +105,25 @@ class DenseNeuralNet(TFBaseClassifier):
 
         for i,n_hidden in enumerate(self.n_hiddens):
             linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
-            if self.batch_normalisation:
-                linear = tf.layers.batch_normalisation(linear,axis = 0,training = self.is_training)
+            
+            if self.batch_normalization:
+                linear = tf.layers.batch_normalization(linear,training = self.is_training)
+            
             activation = tf.nn.relu(linear)
-            last_activation = tf.layers.dropout(activation,rate = self.droput,training = self.is_training)
+            last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
 
-        output = tf.layers.dense(last_activation,self.n_ouputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         return output
 
 
 class oldDenseNeuralNet(TFBaseClassifier):
-    def __init__(self,n_hiddens = [5],dropout=0.2,batch_normalisation = False,**kwargs):
+    def __init__(self,n_hiddens = [5],dropout=0.2,batch_normalization = False,**kwargs):
         
         super(DenseNeuralNet,self).__init__(**kwargs)
 
         self.n_hiddens = n_hiddens
         self.dropout = dropout
-        self.batch_normalisation = batch_normalisation
+        self.batch_normalization = batch_normalization
         self.total_n_samples = 0
 
     def _create_graph(self):
@@ -129,7 +131,7 @@ class oldDenseNeuralNet(TFBaseClassifier):
         for i,n_hidden in enumerate(self.n_hiddens):
             self.tf_vars['w_hidden'+str(i)] =  tf.Variable(tf.random_normal([last_layer,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
             self.tf_vars['b_hidden'+str(i)] =  tf.Variable(tf.constant(0.1,shape = [n_hidden]),dtype = tfDtype)
-            if self.batch_normalisation:
+            if self.batch_normalization:
                 self.tf_vars['gamma'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
                 self.tf_vars['beta'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
                 self.tf_vars['mu_pop'+str(i)] = tf.Variable(tf.constant(0.,shape = [n_hidden]),dtype = tfDtype)
@@ -150,7 +152,7 @@ class oldDenseNeuralNet(TFBaseClassifier):
 
         for i in range(len(self.n_hiddens)):
             state = tf.matmul(last_activation, self.tf_vars['w_hidden'+str(i)]) + self.tf_vars['b_hidden'+str(i)]
-            if self.batch_normalisation:
+            if self.batch_normalization:
                 if self.is_training:
                     mu,sigma = tf.nn.moments(state,axes = [0], keep_dims=True)
                     self.tf_vars['mu_pop'+str(i)] = tf.add(self.total_n_samples*self.tf_vars['mu_pop'+str(i)],self.batchsize*mu)/float(self.total_n_samples+self.batchsize)
