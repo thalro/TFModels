@@ -8,6 +8,8 @@ from sklearn.preprocessing import LabelBinarizer
 
 import tensorflow as tf
 
+tfDtype = tf.float32
+npDtype = np.float32
 
 class OldBatchIndGernerator:
     def __init__(self, batchsize,N,iterations):
@@ -86,7 +88,7 @@ class TFBaseEstimator(BaseEstimator):
     def get_tf_vars_as_ndarrays(self):
         tf_vars = {}
         for var in self.tf_vars.keys():
-            tf_vars[var] = self.session.run(self.tf_vars[var])
+            tf_vars[var] = self.session.run(self.tf_vars[var]).astype(npDtype)
         return tf_vars
     def save(self,fname):
         
@@ -185,6 +187,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         if not self.is_fitted:
             print 'not fitted'
             return
+        # recreate predict operation in case something has changed
+        self.predict_step = self._predict_step()
         prediction = tf.nn.softmax(self.predict_step)
         return self.session.run(prediction,feed_dict={self.x:X.astype(float)})
     

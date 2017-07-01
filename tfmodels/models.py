@@ -15,10 +15,10 @@ from copy import deepcopy
 import tensorflow as tf
 
 
-from .base import TFBaseEstimator,TFBaseClassifier
+from .base import TFBaseEstimator,TFBaseClassifier,tfDtype,npDtype
 
 
-dtype = tf.float32       
+   
 
 
 
@@ -66,7 +66,7 @@ class TextConvNet(TFBaseClassifier):
         self.h_pool_flat = None 
         self.h_drop= None
         self.h = None
-        self.dropout_keep_prob = tf.placeholder(tf.dtype)
+        self.dropout_keep_prob = tf.placeholder(tf.tfDtype)
         self.scores = None
         self.loss = None
         self.predictions = None
@@ -85,11 +85,11 @@ class TextConvNet(TFBaseClassifier):
 
         num_filters_total = self.n_filters * len(self.filter_sizes)
 
-        self.tf_vars['w_dense'] = tf.Variable(tf.truncated_normal([num_filters_total,self.n_hidden],stddev=0.1,seed =self.random_state),dtype = dtype)
-        self.tf_vars['b_dense'] = tf.Variable(tf.constant(0.1,shape =[self.n_hidden]),dtype = dtype)
+        self.tf_vars['w_dense'] = tf.Variable(tf.truncated_normal([num_filters_total,self.n_hidden],stddev=0.1,seed =self.random_state),dtype = tfDtype)
+        self.tf_vars['b_dense'] = tf.Variable(tf.constant(0.1,shape =[self.n_hidden]),dtype = tfDtype)
 
-        self.tf_vars['w_output'] = tf.Variable(tf.random_normal([self.n_hidden,self.n_classes],stddev=0.1,seed = self.random_state),dtype = dtype)
-        self.tf_vars['b_output'] = tf.Variable(tf.constant(0.1,shape =[self.n_classes]),dtype = dtype)
+        self.tf_vars['w_output'] = tf.Variable(tf.random_normal([self.n_hidden,self.n_classes],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+        self.tf_vars['b_output'] = tf.Variable(tf.constant(0.1,shape =[self.n_classes]),dtype = tfDtype)
 
 
     
@@ -141,17 +141,17 @@ class DenseNeuralNet(TFBaseClassifier):
     def _create_graph(self):
         last_layer = self.feature_shape[0]
         for i,n_hidden in enumerate(self.n_hiddens):
-            self.tf_vars['w_hidden'+str(i)] =  tf.Variable(tf.random_normal([last_layer,n_hidden],stddev=0.1,seed = self.random_state),dtype = dtype)
-            self.tf_vars['b_hidden'+str(i)] =  tf.Variable(tf.constant(0.1,shape = [n_hidden]),dtype = dtype)
+            self.tf_vars['w_hidden'+str(i)] =  tf.Variable(tf.random_normal([last_layer,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+            self.tf_vars['b_hidden'+str(i)] =  tf.Variable(tf.constant(0.1,shape = [n_hidden]),dtype = tfDtype)
             if self.batch_normalisation:
-                self.tf_vars['gamma'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = dtype)
-                self.tf_vars['beta'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = dtype)
-                self.tf_vars['mu_pop'+str(i)] = tf.Variable(tf.constant(0.,shape = [n_hidden]),dtype = dtype)
-                self.tf_vars['sigma_pop'+str(i)] = tf.Variable(tf.constant(0.,shape = [n_hidden]),dtype = dtype)
+                self.tf_vars['gamma'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+                self.tf_vars['beta'+str(i)] = tf.Variable(tf.random_normal([1,n_hidden],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+                self.tf_vars['mu_pop'+str(i)] = tf.Variable(tf.constant(0.,shape = [n_hidden]),dtype = tfDtype)
+                self.tf_vars['sigma_pop'+str(i)] = tf.Variable(tf.constant(0.,shape = [n_hidden]),dtype = tfDtype)
             last_layer = n_hidden
 
-        self.tf_vars['w_output'] = tf.Variable(tf.random_normal([last_layer,self.n_outputs],stddev=0.1,seed = self.random_state),dtype = dtype)
-        self.tf_vars['b_output'] = tf.Variable(tf.constant(0.1,shape = [self.n_outputs]),dtype = dtype)
+        self.tf_vars['w_output'] = tf.Variable(tf.random_normal([last_layer,self.n_outputs],stddev=0.1,seed = self.random_state),dtype = tfDtype)
+        self.tf_vars['b_output'] = tf.Variable(tf.constant(0.1,shape = [self.n_outputs]),dtype = tfDtype)
 
 
     def _predict_step(self):
@@ -176,7 +176,8 @@ class DenseNeuralNet(TFBaseClassifier):
                 state = tf.nn.batch_normalization(state,mu,sigma,self.tf_vars['beta'+str(i)],self.tf_vars['gamma'+str(i)],1e-6)
             last_activation = tf.nn.relu(state)
             last_activation = tf.nn.dropout(last_activation,dropout_keep_prob,seed = self.random_state)
-        self.total_n_samples += self.batchsize
+        if self.is_training:
+            self.total_n_samples += self.batchsize
         output_logits = tf.matmul(last_activation, self.tf_vars['w_output']) + self.tf_vars['b_output']
         return output_logits
 
@@ -258,8 +259,8 @@ class EmbeddingTextConvNet:
         
         
         self.x = tf.placeholder(tf.int32,[None,n_words])
-        self.y = tf.placeholder(dtype,[None,n_outputs])
-        self.dropout_keep_prob = tf.placeholder(dtype)
+        self.y = tf.placeholder(tfDtype,[None,n_outputs])
+        self.dropout_keep_prob = tf.placeholder(tfDtype)
         l2_loss = tf.constant(0.0)
         
         # create the embedding layer
@@ -469,9 +470,9 @@ class DeepTextConvNet:
         n_words = data.shape[1]
         word_vec_length = data.shape[2]
         
-        self.x = tf.placeholder(dtype,[None,n_words,word_vec_length,1])
-        self.y = tf.placeholder(dtype,[None,n_outputs])
-        self.dropout_keep_prob = tf.placeholder(dtype)
+        self.x = tf.placeholder(tfDtype,[None,n_words,word_vec_length,1])
+        self.y = tf.placeholder(tfDtype,[None,n_outputs])
+        self.dropout_keep_prob = tf.placeholder(tfDtype)
         l2_loss = tf.constant(0.0)
         # Create a convolution + maxpool layer for each filter size
         #pooled_outputs = []

@@ -294,7 +294,7 @@ class TestDNN(unittest.TestCase):
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
-        dnn = DNN(n_hiddens = [10,10],batch_normalisation=True,dropout = 0.1,iterations =500,learning_rate = 0.3)
+        dnn = DNN(n_hiddens = [10,10],batch_normalisation=True,dropout = 0.1,iterations =500,learning_rate = 0.2)
         dnn.fit(X, y)
         self.assertEqual(dnn.score(X,y), 1.)
 
@@ -370,12 +370,12 @@ class TestDNN(unittest.TestCase):
 
         from models import DenseNeuralNet as DNN
 
-        X = np.random.rand(100,2)
-        y = np.random.randint(0,2,100)
+        X = np.random.rand(10,2)
+        y = np.random.randint(0,2,10)
 
         
 
-        dnn = DNN()
+        dnn = DNN(dropout = 0.5)
         dnn.fit(X, y)
         y1 = dnn.predict_proba(X)
         tmpfile = 'tempsave'
@@ -387,7 +387,8 @@ class TestDNN(unittest.TestCase):
 
         dnn2.load(tmpfile)
         y2 = dnn.predict_proba(X)
-
+       
+        
         self.assertTrue(np.allclose(y1,y2))
 
         os.remove(tmpfile+'.pickle')
