@@ -115,7 +115,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 10,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10,verbose = False,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,iterations = 10,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10,verbose = False,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
