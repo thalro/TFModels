@@ -204,7 +204,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             
             self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
             
-            if self.verbose and iteration%self.calc_loss_interval ==0:
+            if self.verbose and  i%self.calc_loss_interval ==0:
                 loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
                 print 'iteration ',iteration,', batch ',i ,', loss ',loss
             if self.iterations is None and iteration%self.calc_loss_interval ==0:
