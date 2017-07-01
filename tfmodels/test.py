@@ -257,8 +257,8 @@ class TestTextConvNet(unittest.TestCase):
         from models import TextConvNet as TCN
         
         
-        X = np.random.rand(11,5,2)
-        y = np.random.randint(0,2,11)
+        X = np.random.rand(51,5,2)
+        y = np.random.randint(0,2,51)
         X[y==1] += 0.1
         
         tcn = TCN(iterations =10,learning_rate = 0.5)
@@ -270,7 +270,7 @@ class TestTextConvNet(unittest.TestCase):
         
         tcn.fit(X, y,warm_start=True)
         self.assertEqual(tcn.score(X,y), score)   
-        
+        print score,tcn.score(X,y)
         tcn.fit(X, y,warm_start=False)
         self.assertTrue(tcn.score(X,y)!=score)
 
