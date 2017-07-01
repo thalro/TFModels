@@ -2,6 +2,57 @@ import unittest
 import numpy as np
 import os
 
+class TestBatchIndGenerator(unittest.TestCase):
+
+    def test_simple(self):
+
+        N = 1000
+        iterations = 10
+        batchsize = 125
+
+        from base import BatchIndGernerator
+        big = BatchIndGernerator(batchsize, N, iterations)
+
+        samples = []
+        for batch,it  in big:
+           samples.append(batch)
+
+        self.assertEqual(len(samples), iterations*N/batchsize)
+
+
+    def test_uneven(self):
+
+        N = 1000
+        iterations = 10
+        batchsize = 130
+         
+        import math
+        from base import BatchIndGernerator
+        big = BatchIndGernerator(batchsize, N, iterations)
+
+        samples = []
+        for batch,it in big:
+            samples.append(batch)
+
+        self.assertEqual(len(samples), iterations*math.ceil(N/float(batchsize)))
+
+    def test_batchsize_none(self):
+
+        N = 1000
+        iterations = 10
+        batchsize = None
+         
+        import math
+        from base import BatchIndGernerator
+        big = BatchIndGernerator(batchsize, N, iterations)
+
+        samples = []
+        for batch,it in big:
+            samples.append(batch)
+
+        self.assertEqual(len(samples), iterations)
+
+
 # class TestLR(unittest.TestCase):
 #     """ this tests the basic functionality of classifiers
 #         using LogisticRegression as an Example."""

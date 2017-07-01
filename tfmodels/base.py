@@ -9,7 +9,7 @@ from sklearn.preprocessing import LabelBinarizer
 import tensorflow as tf
 
 
-class BatchIndGernerator:
+class OldBatchIndGernerator:
     def __init__(self, batchsize,N,iterations):
         
         if batchsize is None:
@@ -34,6 +34,38 @@ class BatchIndGernerator:
             inds = np.arange(self.N)
             np.random.shuffle(inds)
             return inds[:self.batchsize]
+
+class BatchIndGernerator:
+    def __init__(self, batchsize,N,iterations):
+        
+        if batchsize is None:
+            self.batchsize = N
+        else:
+            self.batchsize = batchsize
+
+        self.N = N
+        self.iterations = iterations
+        self.currentiteration = 0
+        self.queue = []
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.iterations == 0 or \
+           self.iterations is not None and len(self.queue)==0 and self.currentiteration >= self.iterations:
+
+            raise StopIteration
+        else:
+            if len(self.queue) ==0 :
+
+                self.currentiteration += 1
+                inds = np.arange(self.N)
+                np.random.shuffle(inds)
+                self.queue = inds
+            inds = self.queue[:self.batchsize]
+            self.queue = self.queue[self.batchsize:]
+            return inds,self.currentiteration
 
 
 class TFBaseEstimator(BaseEstimator):
@@ -83,7 +115,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,batchsize = None,num_loss_averages = 10,calc_loss_interval= 5,verbose = False,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 10,batchsize = None,num_loss_averages = 10,calc_loss_interval= 1,verbose = False,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -167,11 +199,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         iteration = 0
         losses = [10000.] * self.num_loss_averages
         
-        for batch in BatchIndGernerator(self.batchsize, X.shape[0], self.iterations):
+        for batch,iteration in BatchIndGernerator(self.batchsize, X.shape[0], self.iterations):
             
             
             self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
-            iteration += 1
+            
             if self.verbose and iteration%self.calc_loss_interval ==0:
                 loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
                 print 'iteration ',iteration,', loss ',loss
