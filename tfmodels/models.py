@@ -25,6 +25,9 @@ from .base import TFBaseEstimator,TFBaseClassifier,tfDtype,npDtype
     
     
 
+
+    
+
 class LogisticRegression(TFBaseClassifier):
     """ a simple implementation of Logistic Regression.
 
@@ -32,17 +35,14 @@ class LogisticRegression(TFBaseClassifier):
         of TFBaseClassifier
         """
 
-    def __init__(self,C = 0.,**kwargs):
-        super(LogisticRegression,self).__init__(**kwargs)
-        if C!=0:
-            print 'warning: regularization not yet implemented'
+    def __init__(self,C = 0.1,**kwargs):
+        super(LogisticRegression, self).__init__(**kwargs)
         self.C = C
-        
-    def _create_graph(self):
-        self.tf_vars['w'] = tf.Variable(tf.random_normal([self.feature_shape[0],self.n_outputs],stddev=0.1,seed = self.random_state))
-        self.tf_vars['b'] = tf.Variable(tf.constant(0.1,shape = [self.n_outputs]))
+    
+    
     def _predict_step(self):
-        return tf.matmul(self.x, self.tf_vars['w']) + self.tf_vars['b']
+        layer = tf.layers.dense(self.x,self.n_outputs,name = 'dense_linear',kernel_regularizer=tf.contrib.layers.l2_regularizer(scale = self.C))
+        return layer
     
 
 
@@ -50,7 +50,7 @@ class LogisticRegression(TFBaseClassifier):
 
 class TextConvNet(TFBaseClassifier):
     
-    def __init__(self,filter_sizes = [2,3,4,5],n_filters = 20,n_hidden = 100,dropout=0.5,
+    def __init__(self,filter_sizes = [2,3],n_filters = 20,n_hidden = 100,dropout=0.5,
                  l2_reg_lambda=0.0,**kwargs):
         
         super(TextConvNet,self).__init__(**kwargs)
@@ -61,74 +61,60 @@ class TextConvNet(TFBaseClassifier):
         self.dropout = dropout
         self.l2_reg_lambda = l2_reg_lambda
         
-        self.x = None
-        self.h_pool = None
-        self.h_pool_flat = None 
-        self.h_drop= None
-        self.h = None
-        self.dropout_keep_prob = tf.placeholder(tfDtype)
-        self.scores = None
-        self.loss = None
-        self.predictions = None
-        self.accuracy = None 
-        self.word_vec_length = None
-
-        
-        
-    def _create_graph(self):
-        for i, filter_size in enumerate(self.filter_sizes):
-            
-            # one convolution for each filter size 
-            filter_shape = [filter_size, self.feature_shape[1], 1, self.n_filters]
-            self.tf_vars['w'+str(i)] = tf.Variable(tf.truncated_normal(filter_shape,stddev=0.1,seed = self.random_state))
-            self.tf_vars['b'+str(i)] = tf.Variable(tf.constant(0.1,shape =[self.n_filters]))
-
-        num_filters_total = self.n_filters * len(self.filter_sizes)
-
-        self.tf_vars['w_dense'] = tf.Variable(tf.truncated_normal([num_filters_total,self.n_hidden],stddev=0.1,seed =self.random_state),dtype = tfDtype)
-        self.tf_vars['b_dense'] = tf.Variable(tf.constant(0.1,shape =[self.n_hidden]),dtype = tfDtype)
-
-        self.tf_vars['w_output'] = tf.Variable(tf.random_normal([self.n_hidden,self.n_classes],stddev=0.1,seed = self.random_state),dtype = tfDtype)
-        self.tf_vars['b_output'] = tf.Variable(tf.constant(0.1,shape =[self.n_classes]),dtype = tfDtype)
-
-
+         
     
     def _predict_step(self):
         x = self.x[:,:,:,None]
         pooled_outputs = []
         for i, filter_size in enumerate(self.filter_sizes):
-            conv = tf.nn.conv2d(
-                x,
-                self.tf_vars['w'+str(i)],
-                strides=[1, 1, 1, 1],
-                padding="VALID")
-            # Apply nonlinearity
-            h = tf.nn.relu(tf.nn.bias_add(conv, self.tf_vars['b'+str(i)]))
+            filter_shape = [filter_size, self.feature_shape[1]]
+            conv = tf.layers.conv2d(x,self.n_filters,filter_shape,kernel_initializer =tf.contrib.layers.xavier_initializer_conv2d())
+            
+            h = tf.nn.relu(conv)
             # Maxpooling over the outputs
-            pooled = tf.nn.max_pool(
-                h,
-                ksize=[1,self.feature_shape[0] - filter_size + 1, 1, 1],
-                strides=[1, 1, 1, 1],
-                padding='VALID',
-                name="pool")
+            pooled = tf.layers.max_pooling2d(h,pool_size = [self.feature_shape[0] - filter_size + 1,1],strides = [1,1])
+            
             pooled_outputs.append(pooled)
         num_filters_total = self.n_filters * len(self.filter_sizes)
         self.h_pool = tf.concat(pooled_outputs, 3)
         self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
         
-        self.h = tf.nn.relu(tf.matmul(self.h_pool_flat, self.tf_vars['w_dense']) + self.tf_vars['b_dense'])
+        self.h = tf.layers.dense(self.h_pool_flat,self.n_hidden,activation = tf.nn.relu)
         
-        if self.is_training:
-            dropout_keep_prob = 1-self.dropout
-        else:
-            dropout_keep_prob = 1.
-        self.h_drop = tf.nn.dropout(self.h, dropout_keep_prob,seed = self.random_state)
-        return tf.nn.softmax(tf.matmul(self.h_drop, self.tf_vars['w_output']) + self.tf_vars['b_output'])
+        
+        self.h_drop = tf.layers.dropout(self.h, self.dropout,training = self.is_training)
+        return tf.layers.dense(self.h_drop,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
 
    
 
          
 class DenseNeuralNet(TFBaseClassifier):
+    def __init__(self,n_hiddens = [5],dropout=0.2,batch_normalisation = False,**kwargs):
+        
+        super(DenseNeuralNet,self).__init__(**kwargs)
+
+        self.n_hiddens = n_hiddens
+        self.dropout = dropout
+        self.batch_normalisation = batch_normalisation
+        self.total_n_samples = 0
+
+    
+    def _predict_step(self):
+        
+        last_activation =self.x
+
+        for i,n_hidden in enumerate(self.n_hiddens):
+            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = t.contrib.layers.xavier_initializer())
+            if self.batch_normalisation:
+                linear = tf.layers.batch_normalisation(linear,axis = 0,training = self.is_training)
+            activation = tf.nn.relu(linear)
+            last_activation = tf.layers.dropout(activation,rate = self.droput,training = self.is_training)
+
+        output = tf.layers.dense(last_activation,self.n_ouputs,kernel_initializer = t.contrib.layers.xavier_initializer())
+        return output
+
+
+class oldDenseNeuralNet(TFBaseClassifier):
     def __init__(self,n_hiddens = [5],dropout=0.2,batch_normalisation = False,**kwargs):
         
         super(DenseNeuralNet,self).__init__(**kwargs)
@@ -180,6 +166,7 @@ class DenseNeuralNet(TFBaseClassifier):
             self.total_n_samples += self.batchsize
         output_logits = tf.matmul(last_activation, self.tf_vars['w_output']) + self.tf_vars['b_output']
         return output_logits
+
 
 
 
