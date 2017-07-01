@@ -259,20 +259,22 @@ class TestTextConvNet(unittest.TestCase):
         
         X = np.random.rand(51,5,2)
         y = np.random.randint(0,2,51)
-        X[y==1] += 0.1
+        X[y==1] += 1.
         
-        tcn = TCN(iterations =10,learning_rate = 0.5)
+        tcn = TCN(iterations =0,learning_rate = 0.5)
         tcn.fit(X, y)
 
-        score = tcn.score(X , y)
+        p1 = tcn.predict_proba(X)
 
-        tcn.iterations = 0
+        
         
         tcn.fit(X, y,warm_start=True)
-        self.assertEqual(tcn.score(X,y), score)   
-        print score,tcn.score(X,y)
+        p2 = tcn.predict_proba(X)
+        self.assertTrue(np.allclose(p1,p2)) 
+        
         tcn.fit(X, y,warm_start=False)
-        self.assertTrue(tcn.score(X,y)!=score)
+        p3 = tcn.predict_proba(X)
+        self.assertFalse(np.allclose(p1,p3)) 
 
 
 
