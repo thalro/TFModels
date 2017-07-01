@@ -2,6 +2,57 @@ import unittest
 import numpy as np
 import os
 
+class TestBatchIndGenerator(unittest.TestCase):
+
+    def test_simple(self):
+
+        N = 1000
+        iterations = 10
+        batchsize = 125
+
+        from base import BatchIndGernerator
+        big = BatchIndGernerator(batchsize, N, iterations)
+
+        samples = []
+        for batch,it  in big:
+           samples.append(batch)
+
+        self.assertEqual(len(samples), iterations*N/batchsize)
+
+
+    def test_uneven(self):
+
+        N = 1000
+        iterations = 10
+        batchsize = 130
+         
+        import math
+        from base import BatchIndGernerator
+        big = BatchIndGernerator(batchsize, N, iterations)
+
+        samples = []
+        for batch,it in big:
+            samples.append(batch)
+
+        self.assertEqual(len(samples), iterations*math.ceil(N/float(batchsize)))
+
+    def test_batchsize_none(self):
+
+        N = 1000
+        iterations = 10
+        batchsize = None
+         
+        import math
+        from base import BatchIndGernerator
+        big = BatchIndGernerator(batchsize, N, iterations)
+
+        samples = []
+        for batch,it in big:
+            samples.append(batch)
+
+        self.assertEqual(len(samples), iterations)
+
+
 class TestLR(unittest.TestCase):
     """ this tests the basic functionality of classifiers
         using LogisticRegression as an Example."""
@@ -20,7 +71,7 @@ class TestLR(unittest.TestCase):
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
-        lr = LR(iterations =None,learning_rate = 0.1)
+        lr = LR(iterations =None,learning_rate = 1.)
         lr.fit(X, y)
         self.assertEqual(lr.score(X,y), 1.)
 
@@ -79,7 +130,7 @@ class TestLR(unittest.TestCase):
         y = np.random.randint(0,2,100)
         X[y==1] += 2
         
-        lr = LR(iterations =None,learning_rate = 0.1)
+        lr = LR(iterations =100,learning_rate = 0.1)
         lr.fit(X, y)
 
         self.assertEqual(lr.score(X,y), 1.)    
@@ -206,26 +257,143 @@ class TestTextConvNet(unittest.TestCase):
         from models import TextConvNet as TCN
         
         
-        X = np.random.rand(100,5,2)
+        X = np.random.rand(51,5,2)
+        y = np.random.randint(0,2,51)
+        X[y==1] += 1.
+        
+        tcn = TCN(iterations =0,learning_rate = 0.5)
+        tcn.fit(X, y)
+
+        p1 = tcn.predict_proba(X)
+
+        
+        
+        tcn.fit(X, y,warm_start=True)
+        p2 = tcn.predict_proba(X)
+        self.assertTrue(np.allclose(p1,p2)) 
+        
+        tcn.fit(X, y,warm_start=False)
+        p3 = tcn.predict_proba(X)
+        self.assertFalse(np.allclose(p1,p3)) 
+
+
+
+class TestDNN(unittest.TestCase):
+    """ this tests the basic functionality of classifiers
+        using LogisticRegression as an Example."""
+
+    def test_import_and_init(self):
+        from models import DenseNeuralNet as DNN
+
+        dnn = DNN()
+
+    def test_2D_separable(self):
+        """ DNN should give perfect performance on separable data. """
+        from models import DenseNeuralNet as DNN
+
+        
+        X = np.random.rand(100,2)
+        y = np.random.randint(0,2,100)
+        X[y==1] += 2
+
+        dnn = DNN(n_hiddens = [10,10],batch_normalisation=True,dropout = 0.1,iterations =500,learning_rate = 0.2)
+        dnn.fit(X, y)
+        self.assertEqual(dnn.score(X,y), 1.)
+
+    
+    def test_loop_reinit(self):
+        """ during cross validation, the same model
+            will be initialized several times.
+            """
+
+        from models import DenseNeuralNet as DNN
+        from sklearn.model_selection import StratifiedKFold
+        X = np.random.rand(100,2)
+        y = np.random.randint(0,2,100)
+        
+        pred = np.zeros_like(y).astype(float)
+        xval = StratifiedKFold(n_splits=3)
+        for train,test in xval.split(X,y):
+            dnn = DNN()
+            dnn.fit(X[train],y[train])
+            pred = dnn.predict_proba(X[test])[:,1]
+        
+    def test_random_state_consistency(self):
+        from models import DenseNeuralNet as DNN
+
+        X = np.random.rand(100,2)
+        y = np.random.randint(0,2,100)
+
+        dnn = DNN(random_state = 1,iterations = 1)
+        dnn.fit(X, y)
+        p1 = dnn.predict_proba(X)
+        
+        dnn = DNN(random_state = 1,iterations = 1)
+        dnn.fit(X, y)
+        p2 = dnn.predict_proba(X)
+
+        dnn = DNN(random_state = 2,iterations = 1)
+        dnn.fit(X, y)
+        p3 = dnn.predict_proba(X)
+
+        dnn = DNN(random_state = None,iterations = 1)
+        dnn.fit(X, y)
+        p4 = dnn.predict_proba(X)
+
+        self.assertTrue(np.allclose(p1,p2))
+        self.assertFalse(np.allclose(p1,p3))
+        self.assertFalse(np.allclose(p1,p4))
+        np.random.seed(None)
+         
+    def test_warm_start(self):
+        
+        """ DNN should give perfect performance on separable data. """
+        from models import DenseNeuralNet as DNN
+        
+        
+        X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
         
-        tcn = TCN(iterations =10,learning_rate = 0.5)
-        tcn.fit(X, y)
+        dnn = DNN(iterations =500,learning_rate = 0.2,n_hiddens = [])
+        dnn.fit(X, y)
 
-        score = tcn.score(X , y)
+        self.assertEqual(dnn.score(X,y), 1.)    
 
-        tcn.iterations = 0
+        dnn.iterations = 0
 
-        tcn.fit(X, y,warm_start=True)
-        self.assertEqual(tcn.score(X,y), score)   
+        dnn.fit(X, y,warm_start=True)
+        self.assertEqual(dnn.score(X,y), 1.)   
         
-        tcn.fit(X, y,warm_start=False)
-        self.assertTrue(tcn.score(X,y)!=score)
+        dnn.fit(X, y,warm_start=False)
+        self.assertTrue(dnn.score(X,y)<1.)   
 
+    def test_save_load(self):
 
+        from models import DenseNeuralNet as DNN
 
+        X = np.random.rand(10,2)
+        y = np.random.randint(0,2,10)
 
+        
+
+        dnn = DNN(dropout = 0.5)
+        dnn.fit(X, y)
+        y1 = dnn.predict_proba(X)
+        tmpfile = 'tempsave'
+
+        dnn.save(tmpfile)
+        
+        
+        dnn2 = DNN()
+
+        dnn2.load(tmpfile)
+        y2 = dnn.predict_proba(X)
+       
+        
+        self.assertTrue(np.allclose(y1,y2))
+
+        os.remove(tmpfile+'.pickle')
 
 
 

@@ -8,8 +8,10 @@ from sklearn.preprocessing import LabelBinarizer
 
 import tensorflow as tf
 
+tfDtype = tf.float32
+npDtype = np.float32
 
-class BatchIndGernerator:
+class OldBatchIndGernerator:
     def __init__(self, batchsize,N,iterations):
         
         if batchsize is None:
@@ -35,6 +37,38 @@ class BatchIndGernerator:
             np.random.shuffle(inds)
             return inds[:self.batchsize]
 
+class BatchIndGernerator:
+    def __init__(self, batchsize,N,iterations):
+        
+        if batchsize is None:
+            self.batchsize = N
+        else:
+            self.batchsize = batchsize
+
+        self.N = N
+        self.iterations = iterations
+        self.currentiteration = 0
+        self.queue = []
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.iterations == 0 or \
+           self.iterations is not None and len(self.queue)==0 and self.currentiteration >= self.iterations:
+
+            raise StopIteration
+        else:
+            if len(self.queue) ==0 :
+
+                self.currentiteration += 1
+                inds = np.arange(self.N)
+                np.random.shuffle(inds)
+                self.queue = inds
+            inds = self.queue[:self.batchsize]
+            self.queue = self.queue[self.batchsize:]
+            return inds,self.currentiteration
+
 
 class TFBaseEstimator(BaseEstimator):
     def __init__(self,n_jobs = 1):
@@ -54,7 +88,7 @@ class TFBaseEstimator(BaseEstimator):
     def get_tf_vars_as_ndarrays(self):
         tf_vars = {}
         for var in self.tf_vars.keys():
-            tf_vars[var] = self.session.run(self.tf_vars[var])
+            tf_vars[var] = self.session.run(self.tf_vars[var]).astype(npDtype)
         return tf_vars
     def save(self,fname):
         
@@ -83,7 +117,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.5,iterations = 1000,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,iterations = 10,batchsize = None,num_loss_averages = 10,calc_loss_interval= 10,verbose = False,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -99,12 +133,16 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.batchsize = batchsize
         self.num_loss_averages = num_loss_averages
         self.calc_loss_interval = calc_loss_interval
-        self.train_feed_dict = {}
-        self.predict_feed_dict = {}
+        self.is_training = False
+        self.verbose = verbose
         
         
 
     def fit(self,X,y,warm_start = False):
+        self.is_training = True
+        original_batchsize = self.batchsize
+        if self.batchsize is None:
+            self.batchsize = X.shape[0]
         self.warm_start = warm_start
         if self.random_state is not None:
             
@@ -140,15 +178,19 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # run the training
         self._train_loop(X,bin_y)
         self.is_fitted = True
-
+        self.is_training = False
+        self.batchsize = original_batchsize
         return self
     
     def predict_proba(self,X):
+        self.is_training = False
         if not self.is_fitted:
             print 'not fitted'
             return
-        self.predict_feed_dict.update({self.x:X.astype(float)})
-        return self.session.run(self.predict_step,feed_dict=self.predict_feed_dict)
+        # recreate predict operation in case something has changed
+        self.predict_step = self._predict_step()
+        prediction = tf.nn.softmax(self.predict_step)
+        return self.session.run(prediction,feed_dict={self.x:X.astype(float)})
     
     def predict(self,X):
         if not self.is_fitted:
@@ -161,17 +203,19 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         iteration = 0
         losses = [10000.] * self.num_loss_averages
         
-        for batch in BatchIndGernerator(self.batchsize, X.shape[0], self.iterations):
+        for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], self.iterations)):
             
-            self.train_feed_dict.update({self.x:X[batch],self.y:y[batch]})
-            self.session.run(self.train_step,feed_dict = self.train_feed_dict)
-            iteration += 1
             
+            self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch]})
+            
+            if self.verbose and  i%self.calc_loss_interval ==0:
+                loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
+                print 'iteration ',iteration,', batch ',i ,', loss ',loss
             if self.iterations is None and iteration%self.calc_loss_interval ==0:
                 
-                loss = self.session.run(self._loss_func(),feed_dict = self.train_feed_dict)
+                loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch]})
                 losses = [loss] + losses[:-1]
-                if np.diff(losses).max()<min(losses)/100.:
+                if np.diff(losses).max()<min(losses)/10.:
                     break
     def _loss_func(self):
         # override for more fancy stuff
