@@ -153,8 +153,8 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
                 # last layer, pool over whole field
                 pooling = activation.shape[1:3]
                 pooling_strides = 1
-            pooled = tf.layers.max_pooling2d(activation,pooling,pooling_strides)
-        last_activation = tf.reshape(pooled,[-1,self.n_filters[-1]])
+            last_activation = tf.layers.max_pooling2d(activation,pooling,pooling_strides)
+        last_activation = tf.reshape(last_activation,[-1,self.n_filters[-1]])
         for i,n_hidden in enumerate(self.n_hiddens):
             linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
             
