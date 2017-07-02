@@ -14,7 +14,7 @@ npDtype = np.float32
 
 
 class BatchIndGernerator:
-    def __init__(self, batchsize,N,iterations):
+    def __init__(self, batchsize,N,iterations,shuffle = True):
         
         if batchsize is None:
             self.batchsize = N
@@ -25,6 +25,7 @@ class BatchIndGernerator:
         self.iterations = iterations
         self.currentiteration = 0
         self.queue = []
+        self.shuffle = shuffle
 
     def __iter__(self):
         return self
@@ -39,7 +40,8 @@ class BatchIndGernerator:
 
                 self.currentiteration += 1
                 inds = np.arange(self.N)
-                np.random.shuffle(inds)
+                if self.shuffle:
+                    np.random.shuffle(inds)
                 self.queue = inds
             inds = self.queue[:self.batchsize]
             self.queue = self.queue[self.batchsize:]
@@ -173,8 +175,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             print 'not fitted'
             return
 
-        
-        return self.session.run(self.prediction,feed_dict={self.x:X.astype(float),self.is_training:False})
+        output = []
+        for batch,i in BatchIndGernerator(self.batchsize, X.shape[0], 1,shuffle = False):
+            
+            output.append(self.session.run(self.prediction,feed_dict={self.x:X[batch].astype(float),self.is_training:False}))
+        return np.concatenate(output,axis =0)
     
     def predict(self,X):
         if not self.is_fitted:
