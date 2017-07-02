@@ -1,6 +1,3 @@
-""" CNN for text classification
-    code adapted from https://github.com/dennybritz/cnn-text-classification-tf
-    """
 
 
 
@@ -120,28 +117,55 @@ class DenseNeuralNet(TFBaseClassifier):
 
 class ConvolutionalNeuralNet(TFBaseClassifier):
 
-    def __init__(self,n_filters = [10,10],filter_sizes = [[3,3],[3,3]],strides =[1,1],pooling = [2],n_hiddens = [5],dropout=0.2,batch_normalisation = True,**kwargs):
+    def __init__(self,n_filters = [5,5],filter_sizes = [[3,3],[3,3]],strides =[1,1],pooling = [2],pooling_strides = [1],n_hiddens = [5],dropout=0.2,batch_normalization = True,**kwargs):
         
         super(ConvolutionalNeuralNet,self).__init__(**kwargs)
         
         self.n_filters = n_filters
-        assert len(filter_sizes)==len(n_filters):
-            raise ValueError('n_filters and filter_sizes must be lists of same length')
+        assert len(filter_sizes)==len(n_filters) ,  ValueError('n_filters and filter_sizes must be lists of same length')
 
-        self.filter_sizes = filter sizes
-        assert len(strides)==len(n_filters):
-            raise ValueError('n_filters and strides must be lists of same length')
+        self.filter_sizes = filter_sizes
+        assert len(strides)==len(n_filters), ValueError('n_filters and strides must be lists of same length')
         self.strides = strides
-        assert len(pooling)==len(n_filters)-1:
-            raise ValueError('pooling  must contain one element less than n_filters')
+        assert len(pooling)==len(n_filters)-1,  ValueError('pooling  must contain one element less than n_filters')
+        assert len(pooling)==len(pooling_strides),ValueError('pooling be same length as pooling strides')
         self.pooling = pooling+[None]
+        self.pooling_strides = pooling_strides+[None]
         self.n_hiddens = n_hiddens
         self.dropout = dropout
-        self.batch_normalisation = batch_normalisation
+        self.batch_normalization = batch_normalization
         self.total_n_samples = 0
 
     def _predict_step(self):
-        pass
+        
+        last_activation =self.x
+
+        for i,(n_filter,filter_size,stride,pooling,pooling_strides) in enumerate(zip(self.n_filters,
+                                                                                     self.filter_sizes,
+                                                                                     self.strides,
+                                                                                     self.pooling,
+                                                                                     self.pooling_strides)):
+            conv = tf.layers.conv2d(last_activation,n_filter,filter_size,strides=stride)
+            if self.batch_normalization:
+                conv = tf.layers.batch_normalization(conv,training = self.is_training)
+            activation = tf.nn.relu(conv)
+            if pooling is None:
+                # last layer, pool over whole field
+                pooling = activation.shape[1:3]
+                pooling_strides = 1
+            pooled = tf.layers.max_pooling2d(activation,pooling,pooling_strides)
+        last_activation = tf.reshape(pooled,[-1,self.n_filters[-1]])
+        for i,n_hidden in enumerate(self.n_hiddens):
+            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+            
+            if self.batch_normalization:
+                linear = tf.layers.batch_normalization(linear,training = self.is_training)
+            
+            activation = tf.nn.relu(linear)
+            last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+
+        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+        return output
 
 
 
