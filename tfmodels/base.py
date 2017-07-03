@@ -107,7 +107,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,iterations = 10,batchsize = None,print_interval= 10,verbose = False,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -123,6 +123,9 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.batchsize = batchsize
         self.print_interval = print_interval
         self.verbose = verbose
+        if output_type not in ['softmax','sigmoid']:
+            raise ValueError('output_type must be either softmax or sigmoid')
+        self.output_type = output_type
         self.is_training = tf.placeholder(tf.bool)
         
         
@@ -159,7 +162,10 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             self.predict_step = self._predict_step()
             # op for train step
             self.train_step = self._train_step()
-            self.prediction = tf.nn.softmax(self.predict_step)
+            if self.output_type == 'softmax':
+                self.prediction = tf.nn.softmax(self.predict_step)
+            elif self.output_type == 'sigmoid':
+                self.prediction = tf.nn.sigmoid(self.predict_step)
         
         # initialize variables
         if not self.warm_start:
@@ -202,7 +208,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             
     def _loss_func(self):
         # override for more fancy stuff
-        return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))+tf.reduce_sum(tf.losses.get_regularization_losses())
+        if self.output_type == 'softmax':
+            loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))+tf.reduce_sum(tf.losses.get_regularization_losses())
+        elif self.output_type == 'sigmoid':
+            loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))+tf.reduce_sum(tf.losses.get_regularization_losses())
+        return loss
     def _train_step(self):
         #override for more fancy stuff
         loss = self._loss_func() 
