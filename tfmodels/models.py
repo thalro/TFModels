@@ -127,10 +127,11 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
         self.filter_sizes = filter_sizes
         assert len(strides)==len(n_filters), ValueError('n_filters and strides must be lists of same length')
         self.strides = strides
-        assert len(pooling)==len(n_filters)-1,  ValueError('pooling  must contain one element less than n_filters')
+        assert len(pooling)==len(n_filters)-1 or len(pooling)==len(n_filters),  ValueError('pooling  must have same length as n_filters or one element less')
         assert len(pooling)==len(pooling_strides),ValueError('pooling be same length as pooling strides')
-        self.pooling = pooling+[None]
-        self.pooling_strides = pooling_strides+[None]
+        if len(pooling)<len(filter_sizes):
+            self.pooling = pooling+[None]
+            self.pooling_strides = pooling_strides+[None]
         self.n_hiddens = n_hiddens
         self.dropout = dropout
         self.batch_normalization = batch_normalization
@@ -154,7 +155,9 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
                 pooling = activation.shape[1:3]
                 pooling_strides = 1
             last_activation = tf.layers.max_pooling2d(activation,pooling,pooling_strides)
-        last_activation = tf.reshape(last_activation,[-1,self.n_filters[-1]])
+        flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
+        
+        last_activation = tf.reshape(last_activation,[-1,flat_shape])
         for i,n_hidden in enumerate(self.n_hiddens):
             linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
             
