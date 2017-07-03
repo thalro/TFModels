@@ -129,9 +129,13 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
         self.strides = strides
         assert len(pooling)==len(n_filters)-1 or len(pooling)==len(n_filters),  ValueError('pooling  must have same length as n_filters or one element less')
         assert len(pooling)==len(pooling_strides),ValueError('pooling be same length as pooling strides')
+        self.pooling = pooling
+        self.pooling_strides = pooling_strides
         if len(pooling)<len(filter_sizes):
-            self.pooling = pooling+[None]
-            self.pooling_strides = pooling_strides+[None]
+            self.pooling += [None]
+            self.pooling_strides += [None]
+       
+
         self.n_hiddens = n_hiddens
         self.dropout = dropout
         self.batch_normalization = batch_normalization
