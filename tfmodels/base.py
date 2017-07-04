@@ -121,8 +121,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # learning rate and iterations can also be lists
         if not isinstance(iterations, (list, tuple, np.ndarray)):
             iterations = [iterations]
-            if learning_rates is None:
-                learning_rates = [learning_rate]
+        if learning_rates is None:
+            learning_rates = [learning_rate]
         assert len(learning_rates)==len(iterations), 'learning_rates and iterations must have same length'
         self.learning_rates = learning_rates
         self.learning_rate = learning_rate
@@ -231,7 +231,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # this is needed for so that batch_normalization forks
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            print self.learning_rate
+            
             train_op =  tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
         return train_op
     
