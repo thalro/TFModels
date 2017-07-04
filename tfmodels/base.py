@@ -209,9 +209,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
             self.learning_rate = learning_rate
-            for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], iterations,start_iteration = iteration)):
-                
-                
+            for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], iterations+iteration,start_iteration = iteration)):
                 self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:True})
                 
                 if self.verbose and  i%self.print_interval ==0:
