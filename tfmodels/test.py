@@ -424,11 +424,10 @@ class TestCNN(unittest.TestCase):
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
-        cnn = CNN(n_hiddens = [10],batch_normalization=True,dropout = 0.1,iterations =500,learning_rate = 0.2)
+        cnn = CNN(n_hiddens = [10],batch_normalization=True,dropout = 0.1,iterations =[1,2,3,100],learning_rates = [0.2,0.1,0.05,0.01])
 
         cnn.fit(X, y)
-        print cnn.predict(X)
-
+        
         self.assertEqual(cnn.score(X,y), 1.)
 
     

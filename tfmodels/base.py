@@ -14,7 +14,7 @@ npDtype = np.float32
 
 
 class BatchIndGernerator:
-    def __init__(self, batchsize,N,iterations,shuffle = True):
+    def __init__(self, batchsize,N,iterations,shuffle = True,start_iteration = 0):
         
         if batchsize is None:
             self.batchsize = N
@@ -23,7 +23,7 @@ class BatchIndGernerator:
 
         self.N = N
         self.iterations = iterations
-        self.currentiteration = 0
+        self.currentiteration = start_iteration
         self.queue = []
         self.shuffle = shuffle
 
@@ -107,7 +107,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -118,6 +118,13 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.n_outputs = None
         self.warm_start = False
         self.random_state = random_state
+        # learning rate and iterations can also be lists
+        if not isinstance(iterations, (list, tuple, np.ndarray)):
+            iterations = [iterations]
+            if learning_rates is None:
+                learning_rates = [learning_rate]
+        assert len(learning_rates)==len(iterations), 'learning_rates and iterations must have same length'
+        self.learning_rates = learning_rates
         self.learning_rate = learning_rate
         self.iterations = iterations
         self.batchsize = batchsize
@@ -195,16 +202,21 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         return self.classes_[np.argmax(proba,axis=1)]
     
     def _train_loop(self,X,y):
+        #ensure that iterations is list in case it has been changed
+        if not isinstance(self.iterations, (list, tuple, np.ndarray)):
+            self.iterations = [self.iterations]
         iteration = 0
         
-        for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], self.iterations)):
-            
-            
-            self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:True})
-            
-            if self.verbose and  i%self.print_interval ==0:
-                loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:False})
-                print 'iteration ',iteration,', batch ',i ,', loss ',loss
+        for iterations,learning_rate in zip(self.iterations,self.learning_rates):
+            self.learning_rate = learning_rate
+            for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], iterations,start_iteration = iteration)):
+                
+                
+                self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:True})
+                
+                if self.verbose and  i%self.print_interval ==0:
+                    loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:False})
+                    print 'iteration ',iteration,', batch ',i ,', loss ',loss,', learning rate ',learning_rate
             
     def _loss_func(self):
         # override for more fancy stuff
@@ -219,6 +231,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # this is needed for so that batch_normalization forks
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
+            print self.learning_rate
             train_op =  tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
         return train_op
     
