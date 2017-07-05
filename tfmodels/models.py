@@ -224,7 +224,7 @@ class CascadeConvolutionalNeuralNet(TFBaseClassifier):
         for output in all_outputs:
             flat_shape =  int(output.shape[1]*output.shape[2]*output.shape[3])
             
-            output = tf.reshape(last_activation,[-1,flat_shape])
+            output = tf.reshape(output,[-1,flat_shape])
             flat_outputs.append(output)
         last_activation = tf.concat(flat_outputs,1)
         for i,n_hidden in enumerate(self.n_hiddens):
