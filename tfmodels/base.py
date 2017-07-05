@@ -14,7 +14,7 @@ npDtype = np.float32
 
 
 class BatchIndGernerator:
-    def __init__(self, batchsize,N,iterations):
+    def __init__(self, batchsize,N,iterations,shuffle = True,start_iteration = 0):
         
         if batchsize is None:
             self.batchsize = N
@@ -23,8 +23,9 @@ class BatchIndGernerator:
 
         self.N = N
         self.iterations = iterations
-        self.currentiteration = 0
+        self.currentiteration = start_iteration
         self.queue = []
+        self.shuffle = shuffle
 
     def __iter__(self):
         return self
@@ -39,7 +40,8 @@ class BatchIndGernerator:
 
                 self.currentiteration += 1
                 inds = np.arange(self.N)
-                np.random.shuffle(inds)
+                if self.shuffle:
+                    np.random.shuffle(inds)
                 self.queue = inds
             inds = self.queue[:self.batchsize]
             self.queue = self.queue[self.batchsize:]
@@ -105,7 +107,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,iterations = 10,batchsize = None,print_interval= 10,verbose = False,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -116,11 +118,21 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.n_outputs = None
         self.warm_start = False
         self.random_state = random_state
+        # learning rate and iterations can also be lists
+        if not isinstance(iterations, (list, tuple, np.ndarray)):
+            iterations = [iterations]
+        if learning_rates is None:
+            learning_rates = [learning_rate]
+        assert len(learning_rates)==len(iterations), 'learning_rates and iterations must have same length'
+        self.learning_rates = learning_rates
         self.learning_rate = learning_rate
         self.iterations = iterations
         self.batchsize = batchsize
         self.print_interval = print_interval
         self.verbose = verbose
+        if output_type not in ['softmax','sigmoid']:
+            raise ValueError('output_type must be either softmax or sigmoid')
+        self.output_type = output_type
         self.is_training = tf.placeholder(tf.bool)
         
         
@@ -157,7 +169,10 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             self.predict_step = self._predict_step()
             # op for train step
             self.train_step = self._train_step()
-            self.prediction = tf.nn.softmax(self.predict_step)
+            if self.output_type == 'softmax':
+                self.prediction = tf.nn.softmax(self.predict_step)
+            elif self.output_type == 'sigmoid':
+                self.prediction = tf.nn.sigmoid(self.predict_step)
         
         # initialize variables
         if not self.warm_start:
@@ -173,8 +188,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             print 'not fitted'
             return
 
-        
-        return self.session.run(self.prediction,feed_dict={self.x:X.astype(float),self.is_training:False})
+        output = []
+        for batch,i in BatchIndGernerator(self.batchsize, X.shape[0], 1,shuffle = False):
+            
+            output.append(self.session.run(self.prediction,feed_dict={self.x:X[batch].astype(float),self.is_training:False}))
+        return np.concatenate(output,axis =0)
     
     def predict(self,X):
         if not self.is_fitted:
@@ -184,26 +202,34 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         return self.classes_[np.argmax(proba,axis=1)]
     
     def _train_loop(self,X,y):
+        #ensure that iterations is list in case it has been changed
+        if not isinstance(self.iterations, (list, tuple, np.ndarray)):
+            self.iterations = [self.iterations]
         iteration = 0
         
-        for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], self.iterations)):
-            
-            
-            self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:True})
-            
-            if self.verbose and  i%self.print_interval ==0:
-                loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:False})
-                print 'iteration ',iteration,', batch ',i ,', loss ',loss
+        for iterations,learning_rate in zip(self.iterations,self.learning_rates):
+            self.learning_rate = learning_rate
+            for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], iterations+iteration,start_iteration = iteration)):
+                self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:True})
+                
+                if self.verbose and  i%self.print_interval ==0:
+                    loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:False})
+                    print 'iteration ',iteration,', batch ',i ,', loss ',loss,', learning rate ',learning_rate
             
     def _loss_func(self):
         # override for more fancy stuff
-        return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))+tf.reduce_sum(tf.losses.get_regularization_losses())
+        if self.output_type == 'softmax':
+            loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))+tf.reduce_sum(tf.losses.get_regularization_losses())
+        elif self.output_type == 'sigmoid':
+            loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=self.y, logits=self.predict_step))+tf.reduce_sum(tf.losses.get_regularization_losses())
+        return loss
     def _train_step(self):
         #override for more fancy stuff
         loss = self._loss_func() 
         # this is needed for so that batch_normalization forks
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
+            
             train_op =  tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
         return train_op
     

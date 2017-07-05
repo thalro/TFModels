@@ -67,7 +67,7 @@ class TestLR(unittest.TestCase):
         from models import LogisticRegression as LR
 
         
-        X = np.random.rand(100,2)
+        X = np.random.rand(100,10,8,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
@@ -84,7 +84,7 @@ class TestLR(unittest.TestCase):
 
         from models import LogisticRegression as LR
         from sklearn.model_selection import StratifiedKFold
-        X = np.random.rand(100,2)
+        X = np.random.rand(100,10,8,2)
         y = np.random.randint(0,2,100)
         
         pred = np.zeros_like(y).astype(float)
@@ -97,7 +97,7 @@ class TestLR(unittest.TestCase):
     def test_random_state_consistency(self):
         from models import LogisticRegression as LR
 
-        X = np.random.rand(100,2)
+        X = np.random.rand(100,10,8,2)
         y = np.random.randint(0,2,100)
 
         lr = LR(random_state = 1,iterations = 1)
@@ -127,7 +127,7 @@ class TestLR(unittest.TestCase):
         from models import LogisticRegression as LR
         
         
-        X = np.random.rand(100,2)
+        X = np.random.rand(100,10,8,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
         
@@ -148,7 +148,7 @@ class TestLR(unittest.TestCase):
 
         from models import LogisticRegression as LR
 
-        X = np.random.rand(100,2)
+        X = np.random.rand(100,10,8,2)
         y = np.random.randint(0,2,100)
 
         
@@ -396,6 +396,129 @@ class TestDNN(unittest.TestCase):
 
         dnn2.load(tmpfile)
         y2 = dnn.predict_proba(X)
+       
+        
+        self.assertTrue(np.allclose(y1,y2))
+
+        session_files = [f for f in os.listdir('.') if tmpfile in f]
+        for f in session_files:
+            os.remove(f)
+
+
+
+class TestCNN(unittest.TestCase):
+    """ this tests the basic functionality of classifiers
+        using LogisticRegression as an Example."""
+
+    def test_import_and_init(self):
+        from models import ConvolutionalNeuralNet as CNN
+
+        cnn = CNN()
+
+    def test_2D_separable(self):
+        """ CNN should give perfect performance on separable data. """
+        from models import ConvolutionalNeuralNet as CNN
+
+        
+        X = np.random.rand(100,10,8,2)
+        y = np.random.randint(0,2,100)
+        X[y==1] += 2
+
+        cnn = CNN(n_hiddens = [10],batch_normalization=True,dropout = 0.1,iterations =[20,50,20],learning_rates = [0.2,0.1,0.05],verbose = True)
+
+        cnn.fit(X, y)
+        
+        self.assertEqual(cnn.score(X,y), 1.)
+
+    
+    def test_loop_reinit(self):
+        """ during cross validation, the same model
+            will be initialized several times.
+            """
+
+        from models import ConvolutionalNeuralNet as CNN
+        from sklearn.model_selection import StratifiedKFold
+        X = np.random.rand(100,10,8,2)
+        y = np.random.randint(0,2,100)
+        
+        pred = np.zeros_like(y).astype(float)
+        xval = StratifiedKFold(n_splits=3)
+        for train,test in xval.split(X,y):
+            cnn = CNN()
+            cnn.fit(X[train],y[train])
+            pred = cnn.predict_proba(X[test])[:,1]
+        
+    def test_random_state_consistency(self):
+        from models import ConvolutionalNeuralNet as CNN
+
+        X = np.random.rand(100,10,8,2)
+        y = np.random.randint(0,2,100)
+
+        cnn = CNN(random_state = 1,iterations = 1)
+        cnn.fit(X, y)
+        p1 = cnn.predict_proba(X)
+        
+        cnn = CNN(random_state = 1,iterations = 1)
+        cnn.fit(X, y)
+        p2 = cnn.predict_proba(X)
+
+        cnn = CNN(random_state = 2,iterations = 1)
+        cnn.fit(X, y)
+        p3 = cnn.predict_proba(X)
+
+        cnn = CNN(random_state = None,iterations = 1)
+        cnn.fit(X, y)
+        p4 = cnn.predict_proba(X)
+
+        self.assertTrue(np.allclose(p1,p2))
+        self.assertFalse(np.allclose(p1,p3))
+        self.assertFalse(np.allclose(p1,p4))
+        np.random.seed(None)
+         
+    def test_warm_start(self):
+        
+        """ CNN should give perfect performance on separable data. """
+        from models import ConvolutionalNeuralNet as CNN
+        
+        
+        X = np.random.rand(100,10,8,2)
+        y = np.random.randint(0,2,100)
+        X[y==1] += 2
+        
+        cnn = CNN(iterations =500,learning_rate = 0.2,n_hiddens = [])
+        cnn.fit(X, y)
+
+        self.assertEqual(cnn.score(X,y), 1.)    
+
+        cnn.iterations = 0
+
+        cnn.fit(X, y,warm_start=True)
+        self.assertEqual(cnn.score(X,y), 1.)   
+        
+        cnn.fit(X, y,warm_start=False)
+        self.assertTrue(cnn.score(X,y)<1.)   
+
+    def test_save_load(self):
+
+        from models import ConvolutionalNeuralNet as CNN
+
+        X = np.random.rand(10,10,8,2)
+        y = np.random.randint(0,2,10)
+
+        
+
+        cnn = CNN(dropout = 0.5)
+        cnn.fit(X, y)
+        y1 = cnn.predict_proba(X)
+        tmpfile = 'tempsave'
+
+        cnn.save(tmpfile)
+        
+        
+        cnn2 = CNN()
+
+        cnn2.load(tmpfile)
+        y2 = cnn.predict_proba(X)
        
         
         self.assertTrue(np.allclose(y1,y2))
