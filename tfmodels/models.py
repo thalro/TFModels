@@ -179,7 +179,7 @@ class CascadeConvolutionalNeuralNet(TFBaseClassifier):
 
     def __init__(self,n_filters = [5,5],filter_sizes = [[3,3],[3,3]],strides =[1,1],pooling = [2],pooling_strides = [1],n_hiddens = [5],dropout=0.2,batch_normalization = True,**kwargs):
         
-        super(ConvolutionalNeuralNet,self).__init__(**kwargs)
+        super(CascadeConvolutionalNeuralNet,self).__init__(**kwargs)
         
         self.n_filters = n_filters
         assert len(filter_sizes)==len(n_filters) ,  ValueError('n_filters and filter_sizes must be lists of same length')
