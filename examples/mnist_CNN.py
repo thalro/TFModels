@@ -1,13 +1,13 @@
 import sys;sys.path.append('..')
 from sklearn.datasets import fetch_mldata
-from tfmodels.models import DenseNeuralNet as DNN
+from tfmodels.models import ConvolutionalNeuralNet as CNN
 from sklearn.preprocessing import StandardScaler
+import pylab
 
-
-""" mnist_DNN.py 
+""" mnist_CNN.py 
     
     This example demonstrates the use of a
-    DenseNeuralNet (DNN) to predict the MNIST
+    ConvolutionalNeuralNet (CNN) to predict the MNIST
     hand written digits. 
     """
 
@@ -21,15 +21,19 @@ X, y = mnist.data , mnist.target
 sc = StandardScaler()
 X = sc.fit_transform(X)
 
+X = X.reshape((X.shape[0],28,28,1))
+
 # divide up into train and test sets
 X_train, X_test = X[:60000], X[60000:]
 y_train, y_test = y[:60000], y[60000:]
 
-# create a DNN
-dnn = DNN(n_hiddens = [500,500],batchsize =512,iterations = 10,
-          batch_normalization=True,dropout = 0.1,verbose = True)
+
+# create a CNN
+CNN = CNN(n_filters = [64,128,64,64],filter_sizes = [[3,3],[3,3],[3,3],[3,3]],strides = [1,1,1,2],pooling = [1,1,2],pooling_strides = [1,1,2],n_hiddens = [1024],batchsize =512,iterations = 100,
+          batch_normalization=True,dropout = 0.4,verbose = True,learning_rate = 0.1)
+
 # fit it to the training data
-dnn.fit(X_train,y_train)
+CNN.fit(X_train,y_train)
 
 # print out the test set accuracy
-print 'Test accuracy:, ',dnn.score(X_test,y_test)
+print 'Test accuracy:, ',CNN.score(X_test,y_test)

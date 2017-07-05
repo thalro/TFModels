@@ -175,6 +175,71 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
         return output
 
 
+class CascadeConvolutionalNeuralNet(TFBaseClassifier):
+
+    def __init__(self,n_filters = [5,5],filter_sizes = [[3,3],[3,3]],strides =[1,1],pooling = [2],pooling_strides = [1],n_hiddens = [5],dropout=0.2,batch_normalization = True,**kwargs):
+        
+        super(ConvolutionalNeuralNet,self).__init__(**kwargs)
+        
+        self.n_filters = n_filters
+        assert len(filter_sizes)==len(n_filters) ,  ValueError('n_filters and filter_sizes must be lists of same length')
+
+        self.filter_sizes = filter_sizes
+        assert len(strides)==len(n_filters), ValueError('n_filters and strides must be lists of same length')
+        self.strides = strides
+        assert len(pooling)==len(n_filters)-1 or len(pooling)==len(n_filters),  ValueError('pooling  must have same length as n_filters or one element less')
+        assert len(pooling)==len(pooling_strides),ValueError('pooling be same length as pooling strides')
+        self.pooling = pooling
+        self.pooling_strides = pooling_strides
+        if len(pooling)<len(filter_sizes):
+            self.pooling += [None]
+            self.pooling_strides += [None]
+       
+
+        self.n_hiddens = n_hiddens
+        self.dropout = dropout
+        self.batch_normalization = batch_normalization
+        self.total_n_samples = 0
+
+    def _predict_step(self):
+        
+        last_activation =self.x
+        all_outputs = []
+        for i,(n_filter,filter_size,stride,pooling,pooling_strides) in enumerate(zip(self.n_filters,
+                                                                                     self.filter_sizes,
+                                                                                     self.strides,
+                                                                                     self.pooling,
+                                                                                     self.pooling_strides)):
+            conv = tf.layers.conv2d(last_activation,n_filter,filter_size,strides=stride)
+            if self.batch_normalization:
+                conv = tf.layers.batch_normalization(conv,training = self.is_training)
+            activation = tf.nn.relu(conv)
+            if pooling is None:
+                # last layer, pool over whole field
+                pooling = activation.shape[1:3]
+                pooling_strides = 1
+            last_activation = tf.layers.max_pooling2d(activation,pooling,pooling_strides)
+            all_outputs.append(last_activation)
+        flat_outputs = []
+        for output in all_outputs:
+            flat_shape =  int(output.shape[1]*output.shape[2]*output.shape[3])
+            
+            output = tf.reshape(last_activation,[-1,flat_shape])
+            flat_outputs.append(output)
+        last_activation = tf.concat(flat_outputs)
+        for i,n_hidden in enumerate(self.n_hiddens):
+            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+            
+            if self.batch_normalization:
+                linear = tf.layers.batch_normalization(linear,training = self.is_training)
+            
+            activation = tf.nn.relu(linear)
+            last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+
+        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+        return output
+
+
 
 
 
