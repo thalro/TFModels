@@ -67,7 +67,7 @@ class TestLR(unittest.TestCase):
         from models import LogisticRegression as LR
 
         
-        X = np.random.rand(100,10,8,2)
+        X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
@@ -84,7 +84,7 @@ class TestLR(unittest.TestCase):
 
         from models import LogisticRegression as LR
         from sklearn.model_selection import StratifiedKFold
-        X = np.random.rand(100,10,8,2)
+        X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
         
         pred = np.zeros_like(y).astype(float)
@@ -97,7 +97,7 @@ class TestLR(unittest.TestCase):
     def test_random_state_consistency(self):
         from models import LogisticRegression as LR
 
-        X = np.random.rand(100,10,8,2)
+        X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
 
         lr = LR(random_state = 1,iterations = 1)
