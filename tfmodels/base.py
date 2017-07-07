@@ -1,16 +1,35 @@
 
 import os
 import cPickle as pickle
+import inspect
+
+
 import numpy as np
 
 from sklearn.base import BaseEstimator,ClassifierMixin
 from sklearn.preprocessing import LabelBinarizer
-
 import tensorflow as tf
 
 tfDtype = tf.float32
 npDtype = np.float32
 
+
+def recursive_argspec(cls):
+    if cls is object: 
+        return []
+    try:
+        argspec = inspect.getargspec(cls.__init__)
+        args = argspec.args
+    except:
+        args = []
+    if isinstance(cls,type):
+        bases = cls.__bases__
+    else:
+        bases = cls.__class__.__bases__
+    for base in bases:
+        args += recursive_argspec(base)
+
+    return [a for a in args if a!='self']
 
 
 class BatchIndGernerator:
@@ -69,7 +88,14 @@ class TFBaseEstimator(BaseEstimator):
         else:
             self.session = tf.Session()
 
-        
+    @classmethod
+    def _get_param_names(cls):
+        """ this overrides the method of sklearn BaseEstimator
+            so that param names are also collected from 
+            super classes.
+            """
+        return sorted(recursive_argspec(cls))  
+    
 
     def get_tf_vars_as_ndarrays(self):
         tf_vars = {}
