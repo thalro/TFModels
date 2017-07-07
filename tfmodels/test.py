@@ -127,7 +127,7 @@ class TestLR(unittest.TestCase):
         from models import LogisticRegression as LR
         
         
-        X = np.random.rand(100,10,8,2)
+        X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
         X[y==1] += 2
         
@@ -148,7 +148,7 @@ class TestLR(unittest.TestCase):
 
         from models import LogisticRegression as LR
 
-        X = np.random.rand(100,10,8,2)
+        X = np.random.rand(100,2)
         y = np.random.randint(0,2,100)
 
         
