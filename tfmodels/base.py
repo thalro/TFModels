@@ -72,9 +72,8 @@ class TFBaseEstimator(BaseEstimator):
         self.train_step = None
         self.predict_step = None
         self.is_fitted = False
-        self._var_scope = None
-        self.tf_vars = {}
-
+        
+        
         
         try:
             tf.reset_default_graph()
@@ -87,6 +86,7 @@ class TFBaseEstimator(BaseEstimator):
             self.session = tf.Session(config=config)
         else:
             self.session = tf.Session()
+        self.global_step_tensor = tf.Variable(0,name = 'global_step', trainable=False)
 
     @classmethod
     def _get_param_names(cls):
@@ -95,7 +95,8 @@ class TFBaseEstimator(BaseEstimator):
             super classes.
             """
         return sorted(recursive_argspec(cls))  
-    
+
+
 
     def get_tf_vars_as_ndarrays(self):
         tf_vars = {}
@@ -113,7 +114,7 @@ class TFBaseEstimator(BaseEstimator):
         # save the tf session
 
         saver = tf.train.Saver()
-        saver.save(self.session,fname+'.session')
+        saver.save(self.session,fname+'.session',global_step = self.global_step_tensor)
 
     def load(self,fname):
         params,is_fitted = pickle.load(open(fname+'.params'))
@@ -257,7 +258,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             
-            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss)
+            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor)
         return train_op
     
     def _create_graph(self):
