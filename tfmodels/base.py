@@ -107,7 +107,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -133,6 +133,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         if output_type not in ['softmax','sigmoid']:
             raise ValueError('output_type must be either softmax or sigmoid')
         self.output_type = output_type
+        self.epsilon = epsilon
         self.is_training = tf.placeholder(tf.bool)
         
         
@@ -230,7 +231,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             
-            train_op =  tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss)
         return train_op
     
     def _create_graph(self):
