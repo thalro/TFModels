@@ -134,7 +134,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,multilabel = False,multilabel_threshold = 0.2,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -162,6 +162,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.output_type = output_type
         self.epsilon = epsilon
         self.is_training = tf.placeholder(tf.bool)
+        self.mulitlabel = multilabel
+        self.mulitlabel_threshold = multilabel_threshold
         
         
 
@@ -230,7 +232,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             print 'not fitted'
             return
         proba = self.predict_proba(X)
-        return self.classes_[np.argmax(proba,axis=1)]
+        
+        if self.multilabel:
+            return proba>self.multilabel_threshold
+        else:
+            return self.classes_[np.argmax(proba,axis=1)]
     
     def _train_loop(self,X,y):
         #ensure that iterations is list in case it has been changed
