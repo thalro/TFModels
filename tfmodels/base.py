@@ -72,9 +72,8 @@ class TFBaseEstimator(BaseEstimator):
         self.train_step = None
         self.predict_step = None
         self.is_fitted = False
-        self._var_scope = None
-        self.tf_vars = {}
-
+        
+        
         
         try:
             tf.reset_default_graph()
@@ -87,6 +86,7 @@ class TFBaseEstimator(BaseEstimator):
             self.session = tf.Session(config=config)
         else:
             self.session = tf.Session()
+        self.global_step_tensor = tf.Variable(0,name = 'global_step', trainable=False)
 
     @classmethod
     def _get_param_names(cls):
@@ -95,7 +95,8 @@ class TFBaseEstimator(BaseEstimator):
             super classes.
             """
         return sorted(recursive_argspec(cls))  
-    
+
+
 
     def get_tf_vars_as_ndarrays(self):
         tf_vars = {}
@@ -133,7 +134,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,multilabel = False,multilabel_threshold = 0.2,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -161,6 +162,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.output_type = output_type
         self.epsilon = epsilon
         self.is_training = tf.placeholder(tf.bool)
+        self.multilabel = multilabel
+        self.multilabel_threshold = multilabel_threshold
         
         
 
@@ -176,15 +179,19 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             tf.set_random_seed(self.random_state)
 
 
-        self.classes_ = np.unique(y)
-        self.n_classes = len(self.classes_)
+        
+        
         # targets need to be binarized
         lb = LabelBinarizer()
         bin_y = lb.fit_transform(y)
         if bin_y.shape[1]==1:
             bin_y = np.concatenate([1-bin_y,bin_y],axis = 1)
+        self.classes_ = np.arange(bin_y.shape[1])
+
+        self.n_classes = len(self.classes_)
         self.n_outputs = bin_y.shape[1]
         self.feature_shape = list(X.shape[1:])
+
         
        
         
@@ -226,7 +233,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             print 'not fitted'
             return
         proba = self.predict_proba(X)
-        return self.classes_[np.argmax(proba,axis=1)]
+        
+        if self.multilabel:
+            return proba>self.multilabel_threshold
+        else:
+            return self.classes_[np.argmax(proba,axis=1)]
     
     def _train_loop(self,X,y):
         #ensure that iterations is list in case it has been changed
@@ -257,7 +268,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             
-            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss)
+            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor)
         return train_op
     
     def _create_graph(self):

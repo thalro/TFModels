@@ -237,13 +237,12 @@ class TestTextConvNet(unittest.TestCase):
         tcn = TCN(random_state = 1,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
         tcn.fit(X, y)
         p1 = tcn.predict_proba(X)
-        v1  = tcn.get_tf_vars_as_ndarrays()
         
         tcn = TCN(random_state = 1,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
         tcn.fit(X, y)
         p2 = tcn.predict_proba(X)
 
-        v2 = tcn.get_tf_vars_as_ndarrays()
+        
 
         tcn = TCN(random_state = 2,iterations = 2,n_filters = 2,filter_sizes = [2,3],n_hidden = 10)
         tcn.fit(X, y)
@@ -303,7 +302,7 @@ class TestDNN(unittest.TestCase):
         y = np.random.randint(0,2,100)
         X[y==1] += 2
 
-        dnn = DNN(n_hiddens = [10,10],batch_normalization=True,dropout = 0.1,iterations =500,learning_rate = 0.2)
+        dnn = DNN(n_hiddens = [10,10],batch_normalization=True,dropout = 0.1,iterations =500,learning_rate = 0.001)
         dnn.fit(X, y)
         self.assertEqual(dnn.score(X,y), 1.)
 
