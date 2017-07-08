@@ -32,7 +32,7 @@ def recursive_argspec(cls):
     return [a for a in args if a!='self']
 
 
-class BatchIndGernerator:
+class BatchIndGernerator(object):
     def __init__(self, batchsize,N,iterations,shuffle = True,start_iteration = 0):
         
         if batchsize is None:
@@ -65,6 +65,30 @@ class BatchIndGernerator:
             inds = self.queue[:self.batchsize]
             self.queue = self.queue[self.batchsize:]
             return inds,self.currentiteration
+
+
+class BatchGernerator(object):
+    def __init__(self,X,y=None,batchsize=128,iterations=10,shuffle = True,start_iteration = 0,preprocessors = [],preprocessor_args = [],is_training = True):
+        self.ind_gernerator = BatchIndGernerator(batchsize=batchsize, N=X.shape[0], iterations=iterations,shuffle = shuffle,start_iteration = start_iteration)
+        self.preprocessors = [p(**pa) for p,pa in zip(preprocessors,preprocessor_args)]
+        self.X = X
+        self.y = y
+        self.is_training = is_training
+    def __iter__(self):
+        return self
+    def next(self):
+        inds,currrentiteration = self.ind_gernerator.next()
+
+        Xbatch = self.X[inds]
+        if self.y is not None:
+            ybatch = self.y[inds]
+        else:
+            ybatch = None
+        for prep in self.preprocessors:
+            Xbatch = prep.transform(Xbatch,is_training = self.is_training)
+        return Xbatch,ybatch,currrentiteration
+
+
 
 
 class TFBaseEstimator(BaseEstimator):
@@ -134,7 +158,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,multilabel = False,multilabel_threshold = 0.2,*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,multilabel = False,multilabel_threshold = 0.2,batch_preprocessors = [], batch_preprocessor_args = [],*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -164,6 +188,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.is_training = tf.placeholder(tf.bool)
         self.multilabel = multilabel
         self.multilabel_threshold = multilabel_threshold
+        self.batch_preprocessors = batch_preprocessors
+        self.batch_preprocessor_args = batch_preprocessor_args
         
         
 
@@ -247,11 +273,13 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
             self.learning_rate = learning_rate
-            for i,(batch,iteration) in enumerate(BatchIndGernerator(self.batchsize, X.shape[0], iterations+iteration,start_iteration = iteration)):
-                self.session.run(self.train_step,feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:True})
+            
+            batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,start_iteration = iteration,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = True)
+            for i,(Xbatch,ybatch,iteration) in enumerate(batches):
+                self.session.run(self.train_step,feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True})
                 
                 if self.verbose and  i%self.print_interval ==0:
-                    loss = self.session.run(self._loss_func(),feed_dict = {self.x:X[batch],self.y:y[batch],self.is_training:False})
+                    loss = self.session.run(self._loss_func(),feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:False})
                     print 'iteration ',iteration,', batch ',i ,', loss ',loss,', learning rate ',learning_rate
             
     def _loss_func(self):
