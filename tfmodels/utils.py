@@ -18,7 +18,7 @@ class NetworkTrainer(BaseEstimator):
         try:
             self.model = model_type(**model_args)
         except:
-            pass
+            self.model  = None
 
         self.stagnation_slope = stagnation_slope
         self.max_epochs = max_epochs

@@ -114,7 +114,7 @@ class TFBaseEstimator(BaseEstimator):
         # save the tf session
 
         saver = tf.train.Saver()
-        saver.save(self.session,fname+'.session',global_step = self.global_step_tensor)
+        saver.save(self.session,fname+'.session')
 
     def load(self,fname):
         params,is_fitted = pickle.load(open(fname+'.params'))
@@ -186,7 +186,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         bin_y = lb.fit_transform(y)
         if bin_y.shape[1]==1:
             bin_y = np.concatenate([1-bin_y,bin_y],axis = 1)
-        self.classes_ = np.arange(y.shape[1])
+        self.classes_ = np.arange(bin_y.shape[1])
+
         self.n_classes = len(self.classes_)
         self.n_outputs = bin_y.shape[1]
         self.feature_shape = list(X.shape[1:])
