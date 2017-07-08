@@ -117,7 +117,7 @@ class NetworkTrainer(BaseEstimator):
                     if minval<=ylim[0]:
                         ylim[0] = minval - 0.1 * (ylim[1]-ylim[0])
 
-                    pylab.ylim(ylim)
+                    pylab.ylim(minval - 0.1*(maxval-minval),maxval + 0.1*(maxval-minval))
                 except:
                     pass
             
@@ -199,6 +199,7 @@ class NetworkTrainer(BaseEstimator):
             self.model.fit(X[self.train_inds],y[self.train_inds],warm_start = self.model.is_fitted)
             self.model_params[self.current_iteration] = self.model.get_params()
             self.current_iteration += 1
+            
             self.train_loss.append(self.score_func(y[self.train_inds],self.model.predict(X[self.train_inds])))
             self.valid_loss.append(self.score_func(y[self.valid_inds],self.model.predict(X[self.valid_inds])))
             
