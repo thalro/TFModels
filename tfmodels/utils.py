@@ -206,8 +206,9 @@ class NetworkTrainer(BaseEstimator):
             self._update_plot()
 
             if self.save_interval is not None:
-                if self.current_iteration-self.last_saved >= self.save_interval:
+                if (self.current_iteration-self.last_saved) >= self.save_interval:
                     self.save()
+                    self.last_saved = self.current_iteration
 
             if self.control_file is not None:
                 try:
