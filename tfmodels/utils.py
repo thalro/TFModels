@@ -17,7 +17,6 @@ def _random_rescaling(image):
     # rescale between +/- 25%
     scale = 0.75 + 0.5 * pylab.rand()
     originalsize = image.shape
-    print scale
     try:
         newsize = [int(s*scale) for s in originalsize[:2]]+[originalsize[2]]
     except:
