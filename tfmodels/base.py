@@ -162,8 +162,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.output_type = output_type
         self.epsilon = epsilon
         self.is_training = tf.placeholder(tf.bool)
-        self.mulitlabel = multilabel
-        self.mulitlabel_threshold = multilabel_threshold
+        self.multilabel = multilabel
+        self.multilabel_threshold = multilabel_threshold
         
         
 
