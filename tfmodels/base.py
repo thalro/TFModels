@@ -177,15 +177,17 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             tf.set_random_seed(self.random_state)
 
 
-        self.classes_ = np.unique(y)
+        
         self.n_classes = len(self.classes_)
         # targets need to be binarized
         lb = LabelBinarizer()
         bin_y = lb.fit_transform(y)
         if bin_y.shape[1]==1:
             bin_y = np.concatenate([1-bin_y,bin_y],axis = 1)
+        self.classes_ = np.arange(y.shape[1])
         self.n_outputs = bin_y.shape[1]
         self.feature_shape = list(X.shape[1:])
+
         
        
         
