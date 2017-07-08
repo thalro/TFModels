@@ -111,7 +111,7 @@ class NetworkTrainer(BaseEstimator):
     def save(self,fname = 'trainer'):
         fname += '_'+str(self.current_iteration)
         self.model.save(os.path.join(self.training_dir,fname))
-        things_to_save = (self.get_params(deep = False),self.train_loss,self.valid_loss,self.current_iteration,self.model_params,self.last_saved)
+        things_to_save = (self.get_params(deep = False),self.train_loss,self.valid_loss,self.current_iteration,self.model_params,self.last_saved,self.train_inds,self.valid_inds)
         pickle.dump(things_to_save, open(os.path.join(self.training_dir,fname),'w'),protocol  = 2)
 
     def load(self,fname = None):
@@ -127,7 +127,7 @@ class NetworkTrainer(BaseEstimator):
             fname = os.path.join(self.training_dir,'trainer_'+str(highest_iteration))
         loaded_stuff = pickle.load(open(fname))
         self.set_params(**loaded_stuff[0]) 
-        self.train_loss,self.valid_loss,self.current_iteration,self.model_params,self.last_saved = loaded_stuff[1:]
+        self.train_loss,self.valid_loss,self.current_iteration,self.model_params,self.last_saved,self.train_inds,self.valid_inds = loaded_stuff[1:]
         
         self.model = self.model_type()
         self.model.load(fname)
