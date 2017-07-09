@@ -188,11 +188,15 @@ class Resnet50(TFBaseClassifier):
         self.bottom_fixed = True
         self.base_model = None
     def _predict_step(self):
-        
-        self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
+        input = tf.layers.batch_normalization(self.x,training = self.is_training)
+        self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = input)
         for layer in self.base_model.layers:
             layer.trainable = False
-        output = tf.layers.dense(self.base_model.output,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+        last_activation = self.base_model.output
+        flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
+        
+        last_activation = tf.reshape(last_activation,[-1,flat_shape])
+        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         
         return output
     def _iteration_callback(self):
