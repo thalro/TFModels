@@ -52,7 +52,7 @@ class ImageAugmenter(object):
                     
                     if pylab.rand()<self.transform_prob:
                        X_out[i] = transform(X[i]) 
-                    
+                       
         
         return X_out
 
