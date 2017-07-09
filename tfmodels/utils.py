@@ -54,6 +54,25 @@ class ImageAugmenter(object):
                        X_out[i] = transform(X[i])
         
         return X_out
+
+class ImageNetScaler(object):
+    """ this seems to be required for models pretrained
+        on imagenet. """
+   
+    def fit(self,X,y=None):
+        pass
+    def fit_transform(self,X,y=None):
+        return self.transform(X)
+    def transform(self,X,is_training = False):
+        X_out = X.copy()
+        if not X_out.max()>1.:
+            X_out *= 255.
+        X_out = X_out[:, :, :, ::-1]
+        # Zero-center by mean pixel
+        X_out[:, :, :, 0] -= 103.939
+        X_out[:, :, :, 1] -= 116.779
+        X_out[:, :, :, 2] -= 123.68
+        return X_out
       
 
 
