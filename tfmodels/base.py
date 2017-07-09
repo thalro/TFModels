@@ -191,6 +191,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.batch_preprocessors = batch_preprocessors
         self.batch_preprocessor_args = batch_preprocessor_args
         
+        self.train_feed_dict = {}
+        self.test_feed_dict = {}
         
 
     def fit(self,X,y,warm_start = False):
@@ -223,8 +225,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         if not self.is_fitted:
             # place holder for the input and output
-            self.x = tf.placeholder(tf.float32,[None]+self.feature_shape)
-            self.y = tf.placeholder(tf.float32,[None,self.n_outputs])
+            self.x = tf.placeholder(tf.float32,[None]+self.feature_shape,name = 'self.x')
+            self.y = tf.placeholder(tf.float32,[None,self.n_outputs],name = 'self.y')
             # create graph
             self.predict_step = self._predict_step()
             # op for train step
@@ -247,11 +249,13 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         if not self.is_fitted:
             print 'not fitted'
             return
-
+        
         output = []
         for batch,i in BatchIndGernerator(self.batchsize, X.shape[0], 1,shuffle = False):
+            feed_dict = {self.x:X[batch].astype(float),self.is_training:False}
+            feed_dict.update(self.test_feed_dict)
             
-            output.append(self.session.run(self.prediction,feed_dict={self.x:X[batch].astype(float),self.is_training:False}))
+            output.append(self.session.run(self.prediction,feed_dict=feed_dict))
         return np.concatenate(output,axis =0)
     
     def predict(self,X):
@@ -272,14 +276,19 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         iteration = 0
         
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
+            self._iteration_callback()
             self.learning_rate = learning_rate
             
             batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,start_iteration = iteration,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = True)
             for i,(Xbatch,ybatch,iteration) in enumerate(batches):
-                self.session.run(self.train_step,feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True})
+                feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True}
+                feed_dict.update(self.train_feed_dict)
+                self.session.run(self.train_step,feed_dict = feed_dict)
                 
                 if self.verbose and  i%self.print_interval ==0:
-                    loss = self.session.run(self._loss_func(),feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:False})
+                    feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:False}
+                    feed_dict.update(self.test_feed_dict)
+                    loss = self.session.run(self._loss_func(),feed_dict = feed_dict)
                     print 'iteration ',iteration,', batch ',i ,', loss ',loss,', learning rate ',learning_rate
             
     def _loss_func(self):
@@ -298,7 +307,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             
             train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor)
         return train_op
-    
+
+    def _iteration_callback(self):
+        # this is executed at the beginning of each iteration 
+        # and can be overridden with useful stuff
+        return None
     def _create_graph(self):
         # this needs to be filled
         raise NotImplementedError
