@@ -226,7 +226,66 @@ class Resnet50(TFBaseClassifier):
         if self.bottom_fixed:
             var_list = [v for v in var_list if 'base_model' not in v.name]
         return var_list
-    # 
+
+
+class Resnet(TFBaseClassifier):
+    def __init__(self,N = 34,fixed_epochs =10,**kwargs):
+        if N not in range(7,50,3):
+            print 'N must be one of ',range(7,50,3)
+        super(Resnet, self).__init__(**kwargs)
+        keras.backend.set_session(self.session)
+        self.N = N
+        self.train_feed_dict = {keras.backend.learning_phase():True}
+        self.test_feed_dict = {keras.backend.learning_phase():False}
+        self.epoch_count = 0
+        self.fixed_epochs = fixed_epochs
+        self.bottom_fixed = True
+        self.base_model = None
+     
+        
+    def _predict_step(self):
+        with  tf.variable_scope('base_model'):
+            
+            self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
+            top_layer_name = 'activation_'+str(self.N)
+            while self.base_model.layers[-1].name != top_layer_name:
+                self.base_model.layers.pop()
+            last_layer = self.base_model.layers[-1].output
+            
+            pooled = tf.layers.average_pooling2d(last_layer,last_layer.shape[1:3],[1,1])
+        
+
+        last_activation = pooled
+        flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
+        
+        last_activation = tf.reshape(last_activation,[-1,flat_shape])
+        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+        return output
+        
+        
+    def _iteration_callback(self):
+
+        old_state = self.bottom_fixed
+        if self.epoch_count<self.fixed_epochs:
+            self.bottom_fixed = True
+        if self.epoch_count>=self.fixed_epochs:
+            self.bottom_fixed = False
+        if old_state!=self.bottom_fixed:
+            self.train_step = self._train_step()
+            self._init_vars()
+        self.epoch_count+=1
+    def _init_vars(self):
+        var_names = self.session.run( tf.report_uninitialized_variables( ) )
+        
+        var_list = [v for v in tf.global_variables() if v.name.split(':')[0] in var_names]
+        
+        self.session.run( tf.variables_initializer(var_list) )
+    def _opt_var_list(self):
+        # control which variables are beeing optimized
+        var_list = tf.trainable_variables()
+        if self.bottom_fixed:
+            var_list = [v for v in var_list if 'base_model' not in v.name]
+        return var_list
 
 
 
