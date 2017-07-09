@@ -238,21 +238,25 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         # initialize variables
         if not self.warm_start:
-            self.session.run(tf.global_variables_initializer())
+            self._init_vars()
         # run the training
         self._train_loop(X,bin_y)
         self.is_fitted = True
         self.batchsize = original_batchsize
         return self
-    
+    def _init_vars(self):
+        self.session.run(tf.global_variables_initializer())
+    def _opt_var_list(self):
+        return tf.trainable_variables()
     def predict_proba(self,X):
         if not self.is_fitted:
             print 'not fitted'
             return
         
         output = []
-        for batch,i in BatchIndGernerator(self.batchsize, X.shape[0], 1,shuffle = False):
-            feed_dict = {self.x:X[batch].astype(float),self.is_training:False}
+        batches = BatchGernerator(X,None,self.batchsize,1,shuffle = False,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = False)
+        for (Xbatch,ybatch,iteration) in batches:
+            feed_dict = {self.x:Xbatch.astype(float),self.is_training:False}
             feed_dict.update(self.test_feed_dict)
             
             output.append(self.session.run(self.prediction,feed_dict=feed_dict))
@@ -305,7 +309,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             
-            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor)
+            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
         return train_op
 
     def _iteration_callback(self):
