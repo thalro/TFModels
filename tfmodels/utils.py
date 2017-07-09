@@ -51,7 +51,8 @@ class ImageAugmenter(object):
                 for transform in transform_list:
                     
                     if pylab.rand()<self.transform_prob:
-                       X_out[i] = transform(X[i])
+                       X_out[i] = transform(X[i]) 
+                    
         
         return X_out
 
