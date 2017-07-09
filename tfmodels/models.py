@@ -187,30 +187,46 @@ class Resnet50(TFBaseClassifier):
         self.fixed_epochs = fixed_epochs
         self.bottom_fixed = True
         self.base_model = None
+     
+        
+    def _predict_step(self):
+        with  tf.variable_scope('base_model'):
+            
+            self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
+        
 
-    def _compile_model(self,train_bottom = False):
-        input = tf.layers.batch_normalization(self.x,training = self.is_training)
-        self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = input)
-        for layer in self.base_model.layers:
-            layer.trainable = train_bottom
         last_activation = self.base_model.output
         flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
         
         last_activation = tf.reshape(last_activation,[-1,flat_shape])
         output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         return output
-    def _predict_step(self):
-        return self._compile_model(train_bottom = False)
         
         
     def _iteration_callback(self):
-        if self.epoch_count ==0:
-            self.predict_step = self._compile_model(train_bottom=False)
-        self.epoch_count+=1
-        if self.epoch_count==self.fixed_epochs:
-            self.bottom_fixed = False
-            self.predict_step = self._compile_model(train_bottom=True)
 
+        old_state = self.bottom_fixed
+        if self.epoch_count<self.fixed_epochs:
+            self.bottom_fixed = True
+        if self.epoch_count>=self.fixed_epochs:
+            self.bottom_fixed = False
+        if old_state!=self.bottom_fixed:
+            self.train_step = self._train_step()
+            self._init_vars()
+        self.epoch_count+=1
+    def _init_vars(self):
+        var_names = self.session.run( tf.report_uninitialized_variables( ) )
+        
+        var_list = [v for v in tf.global_variables() if v.name.split(':')[0] in var_names]
+        
+        self.session.run( tf.variables_initializer(var_list) )
+    def _opt_var_list(self):
+        # control which variables are beeing optimized
+        var_list = tf.trainable_variables()
+        if self.bottom_fixed:
+            var_list = [v for v in var_list if 'base_model' not in v.name]
+        return var_list
+    # 
 
 
 
