@@ -52,7 +52,7 @@ class ImageAugmenter(object):
                     
                     if pylab.rand()<self.transform_prob:
                        X_out[i] = transform(X[i]) 
-                       
+
         
         return X_out
 
@@ -216,17 +216,20 @@ class NetworkTrainer(BaseEstimator):
         while self.current_iteration < self.max_epochs:
             self.model.iterations = 1
             print self.current_iteration
-            self.model.fit(X[self.train_inds],y[self.train_inds],warm_start = self.model.is_fitted)
+            print 'fitting model'
+            self.model.fit(X[self.train_inds],y[self.train_inds],warm_start = self.model.is_fitted) 
             self.model_params[self.current_iteration] = self.model.get_params()
             self.current_iteration += 1
-            
+            print 'computing training score'
             self.train_loss.append(self.score_func(y[self.train_inds],self.model.predict(X[self.train_inds])))
+            print 'computing validation score'
             self.valid_loss.append(self.score_func(y[self.valid_inds],self.model.predict(X[self.valid_inds])))
             
             self._update_plot()
 
             if self.save_interval is not None:
                 if (self.current_iteration-self.last_saved) >= self.save_interval:
+                    print 'saving model'
                     self.save()
                     self.last_saved = self.current_iteration
 
