@@ -187,29 +187,29 @@ class Resnet50(TFBaseClassifier):
         self.fixed_epochs = fixed_epochs
         self.bottom_fixed = True
         self.base_model = None
-    def _predict_step(self):
+
+    def _compile_model(self,train_bottom = False):
         input = tf.layers.batch_normalization(self.x,training = self.is_training)
         self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = input)
         for layer in self.base_model.layers:
-            layer.trainable = False
+            layer.trainable = train_bottom
         last_activation = self.base_model.output
         flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
         
         last_activation = tf.reshape(last_activation,[-1,flat_shape])
         output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
-        
         return output
+    def _predict_step(self):
+        return self._compile_model(train_bottom = False)
+        
+        
     def _iteration_callback(self):
         if self.epoch_count ==0:
-            # reload the model because pretrained weights are overwritten by initialization 
-            self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
-            for layer in self.base_model.layers:
-                layer.trainable = False
+            self.predict_step = self._compile_model(train_bottom=False)
         self.epoch_count+=1
         if self.epoch_count==self.fixed_epochs:
             self.bottom_fixed = False
-            for layer in base_model.layers:
-                layers.trainable = True
+            self.predict_step = self._compile_model(train_bottom=True)
 
 
 
