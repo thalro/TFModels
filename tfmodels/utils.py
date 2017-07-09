@@ -5,6 +5,57 @@ import pylab
 import cPickle as pickle
 
 from sklearn.base import BaseEstimator
+from skimage.transform import rotate,resize
+from random import choice
+
+
+def _random_rotation(image):
+    angle = choice([0.,90.,180.,270.])
+    angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
+    return rotate(image,angle,resize = False)
+def _random_rescaling(image):
+    # rescale between +/- 25%
+    scale = 0.75 + 0.5 * pylab.rand()
+    originalsize = image.shape
+    try:
+        newsize = [int(s*scale) for s in originalsize[:2]]+[originalsize[2]]
+    except:
+        newsize = [int(s*scale) for s in originalsize[:2]]
+    scaled = resize(image, newsize)
+    if scale <=1:
+        # apply zero padding
+        image = pylab.zeros(originalsize)
+        offset = (originalsize[0]-newsize[0])/2
+        
+        image[offset:offset+newsize[0],offset:offset+newsize[1]] = scaled
+    else:
+        #crop
+        xoffset = pylab.randint(0,(newsize[0]-originalsize[0])/2+1)
+        yoffset = pylab.randint(0,(newsize[1]-originalsize[1])/2+1)
+        image = scaled[xoffset:xoffset+originalsize[0],yoffset:yoffset+originalsize[1]]
+    return image
+
+class ImageAugmenter(object):
+    def __init__(self,transform_prob = 0.2):
+        self.transform_prob =  transform_prob
+    def fit(self,X,y=None):
+        pass
+    def fit_transform(self,X,y=None):
+        return self.transform(X)
+    def transform(self,X,is_training = False):
+        
+        X_out = X.copy()
+        if is_training:
+            for i in range(X.shape[0]):
+                transform_list = [pylab.fliplr,pylab.flipud,_random_rotation,_random_rescaling]
+                for transform in transform_list:
+                    
+                    if pylab.rand()<self.transform_prob:
+                       X_out[i] = transform(X[i])
+        
+        return X_out
+      
+
 
 def accuracy(y_true,y_pred):
     return (y_true==y_pred).mean()
@@ -66,7 +117,7 @@ class NetworkTrainer(BaseEstimator):
                     if minval<=ylim[0]:
                         ylim[0] = minval - 0.1 * (ylim[1]-ylim[0])
 
-                    pylab.ylim(ylim)
+                    pylab.ylim(minval - 0.1*(maxval-minval),maxval + 0.1*(maxval-minval))
                 except:
                     pass
             
@@ -148,14 +199,16 @@ class NetworkTrainer(BaseEstimator):
             self.model.fit(X[self.train_inds],y[self.train_inds],warm_start = self.model.is_fitted)
             self.model_params[self.current_iteration] = self.model.get_params()
             self.current_iteration += 1
+            
             self.train_loss.append(self.score_func(y[self.train_inds],self.model.predict(X[self.train_inds])))
             self.valid_loss.append(self.score_func(y[self.valid_inds],self.model.predict(X[self.valid_inds])))
             
             self._update_plot()
 
             if self.save_interval is not None:
-                if self.current_iteration-self.last_saved >= self.save_interval:
+                if (self.current_iteration-self.last_saved) >= self.save_interval:
                     self.save()
+                    self.last_saved = self.current_iteration
 
             if self.control_file is not None:
                 try:

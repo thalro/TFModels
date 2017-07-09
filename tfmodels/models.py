@@ -144,7 +144,8 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
     def _predict_step(self):
         
         last_activation =self.x
-
+        if self.batch_normalization:
+                last_activation = tf.layers.batch_normalization(last_activation,training = self.is_training)
         for i,(n_filter,filter_size,stride,pooling,pooling_strides) in enumerate(zip(self.n_filters,
                                                                                      self.filter_sizes,
                                                                                      self.strides,
