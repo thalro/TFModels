@@ -229,12 +229,19 @@ class Resnet50(TFBaseClassifier):
 
 
 class Resnet(TFBaseClassifier):
-    def __init__(self,N = 34,fixed_epochs =10,**kwargs):
+    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,**kwargs):
         if N not in range(7,50,3):
             print 'N must be one of ',range(7,50,3)
+        if not N_fixed <=N:
+            print 'N_fixed must be smaller than N'
+        if N_fixed not in range(7,50,3)+[None]:
+            print 'N_fixed must be one of ',range(7,50,3),' or None'
+
         super(Resnet, self).__init__(**kwargs)
         keras.backend.set_session(self.session)
         self.N = N
+        self.N_fixed = N_fixed
+        self.fixed_layers = []
         self.train_feed_dict = {keras.backend.learning_phase():True}
         self.test_feed_dict = {keras.backend.learning_phase():False}
         self.epoch_count = 0
@@ -248,9 +255,16 @@ class Resnet(TFBaseClassifier):
             
             self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
             top_layer_name = 'activation_'+str(self.N)
+            top_fixed_layer_name = 'activation_'+str(self.N_fixed)
             while self.base_model.layers[-1].name != top_layer_name:
                 self.base_model.layers.pop()
             last_layer = self.base_model.layers[-1].output
+            # collect allways fixed layers
+            if self.N_fixed is not None:
+                for layer in self.base_model.layers:
+                    self.fixed_layers.append(layer.name)
+                    if layer.name == top_fixed_layer_name:
+                        break
             
             pooled = tf.layers.average_pooling2d(last_layer,last_layer.shape[1:3],[1,1])
         
@@ -283,6 +297,8 @@ class Resnet(TFBaseClassifier):
     def _opt_var_list(self):
         # control which variables are beeing optimized
         var_list = tf.trainable_variables()
+        for fixed in self.fixed_layers:
+            var_list =  [v for v in var_list if fixed not in v.name]
         if self.bottom_fixed:
             var_list = [v for v in var_list if 'base_model' not in v.name]
         return var_list
