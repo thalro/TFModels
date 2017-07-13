@@ -205,16 +205,16 @@ class NetworkTrainer(BaseEstimator):
     def fit(self,X,y):
         if self.live_plot:
             self.init_plot()
-        if self.train_inds is None:
+        if self.train_inds is None or len(self.valid_inds)+len(self.train_inds)!=X.shape[0]:
             inds = np.arange(X.shape[0])
             np.random.shuffle(inds)
             n_valid = int(self.valid_fraction*len(inds))
             self.valid_inds = inds[:n_valid]
             self.train_inds = inds[n_valid:] 
-        X_train = X[self.train_inds]
-        y_train = y[self.train_inds]
-        X_valid = X[self.valid_inds]
-        y_valid = y[self.valid_inds]
+            X_train = X[self.train_inds]
+            y_train = y[self.train_inds]
+            X_valid = X[self.valid_inds]
+            y_valid = y[self.valid_inds]
         while self.current_iteration < self.max_epochs:
             self.model.iterations = 1
             print self.current_iteration
