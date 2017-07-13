@@ -168,6 +168,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.feature_shape = None
         self.n_outputs = None
         self.warm_start = False
+        self.learning_rate_tensor = None
         self.random_state = random_state
         # learning rate and iterations can also be lists
         if not isinstance(iterations, (list, tuple, np.ndarray)):
@@ -227,6 +228,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             # place holder for the input and output
             self.x = tf.placeholder(tf.float32,[None]+self.feature_shape,name = 'self.x')
             self.y = tf.placeholder(tf.float32,[None,self.n_outputs],name = 'self.y')
+            self.learning_rate_tensor = tf.placeholder(tf.float32,shape = [],name = 'learning_rate')
             # create graph
             self.predict_step = self._predict_step()
             # op for train step
@@ -285,7 +287,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             
             batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,start_iteration = iteration,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = True)
             for i,(Xbatch,ybatch,iteration) in enumerate(batches):
-                feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True}
+                feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True,self.learning_rate_tensor:self.learning_rate}
                 feed_dict.update(self.train_feed_dict)
                 self.session.run(self.train_step,feed_dict = feed_dict)
                 
@@ -309,7 +311,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             
-            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
+            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
         return train_op
 
     def _iteration_callback(self):
