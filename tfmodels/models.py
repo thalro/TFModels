@@ -186,16 +186,16 @@ class Resnet50(TFBaseClassifier):
         self.epoch_count = 0
         self.fixed_epochs = fixed_epochs
         self.bottom_fixed = True
-        self.base_model = None
+        
      
         
     def _predict_step(self):
         with  tf.variable_scope('base_model'):
             
-            self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
+            base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
         
 
-        last_activation = self.base_model.output
+        last_activation = base_model.output
         flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
         
         last_activation = tf.reshape(last_activation,[-1,flat_shape])
@@ -228,6 +228,7 @@ class Resnet50(TFBaseClassifier):
         return var_list
 
 
+
 class Resnet(TFBaseClassifier):
     def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,**kwargs):
         if N not in range(7,50,3):
@@ -247,21 +248,21 @@ class Resnet(TFBaseClassifier):
         self.epoch_count = 0
         self.fixed_epochs = fixed_epochs
         self.bottom_fixed = True
-        self.base_model = None
+        
      
         
     def _predict_step(self):
         with  tf.variable_scope('base_model'):
             
-            self.base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
+            base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
             top_layer_name = 'activation_'+str(self.N)
             top_fixed_layer_name = 'activation_'+str(self.N_fixed)
-            while self.base_model.layers[-1].name != top_layer_name:
-                self.base_model.layers.pop()
-            last_layer = self.base_model.layers[-1].output
+            while base_model.layers[-1].name != top_layer_name:
+                base_model.layers.pop()
+            last_layer = base_model.layers[-1].output
             # collect allways fixed layers
             if self.N_fixed is not None:
-                for layer in self.base_model.layers:
+                for layer in base_model.layers:
                     self.fixed_layers.append(layer.name)
                     if layer.name == top_fixed_layer_name:
                         break
