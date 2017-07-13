@@ -212,10 +212,10 @@ class NetworkTrainer(BaseEstimator):
             n_valid = int(self.valid_fraction*len(inds))
             self.valid_inds = inds[:n_valid]
             self.train_inds = inds[n_valid:] 
-            X_train = X[self.train_inds]
-            y_train = y[self.train_inds]
-            X_valid = X[self.valid_inds]
-            y_valid = y[self.valid_inds]
+        X_train = X[self.train_inds]
+        y_train = y[self.train_inds]
+        X_valid = X[self.valid_inds]
+        y_valid = y[self.valid_inds]
         while self.current_iteration < self.max_epochs:
             self.model.iterations = 1
             print self.current_iteration
