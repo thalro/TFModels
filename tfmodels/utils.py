@@ -12,6 +12,7 @@ from random import choice
 def _random_rotation(image):
     angle = choice([0.,90.,180.,270.])
     angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
+    #print angle
     return rotate(image,angle,resize = False)
 def _random_rescaling(image):
     # rescale between +/- 25%
@@ -40,8 +41,8 @@ class ImageAugmenter(object):
         self.transform_prob =  transform_prob
     def fit(self,X,y=None):
         pass
-    def fit_transform(self,X,y=None):
-        return self.transform(X)
+    def fit_transform(self,X,y=None,is_training = False):
+        return self.transform(X,is_training)
     def transform(self,X,is_training = False):
         
         X_out = X.copy()
@@ -211,10 +212,10 @@ class NetworkTrainer(BaseEstimator):
             n_valid = int(self.valid_fraction*len(inds))
             self.valid_inds = inds[:n_valid]
             self.train_inds = inds[n_valid:] 
-            X_train = X[self.train_inds]
-            y_train = y[self.train_inds]
-            X_valid = X[self.valid_inds]
-            y_valid = y[self.valid_inds]
+        X_train = X[self.train_inds]
+        y_train = y[self.train_inds]
+        X_valid = X[self.valid_inds]
+        y_valid = y[self.valid_inds]
         while self.current_iteration < self.max_epochs:
             self.model.iterations = 1
             print self.current_iteration

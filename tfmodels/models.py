@@ -257,6 +257,7 @@ class Resnet(TFBaseClassifier):
             base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
             top_layer_name = 'activation_'+str(self.N)
             top_fixed_layer_name = 'activation_'+str(self.N_fixed)
+            
             while base_model.layers[-1].name != top_layer_name:
                 base_model.layers.pop()
             last_layer = base_model.layers[-1].output
