@@ -314,7 +314,7 @@ class Resnet(TFBaseClassifier):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             
-            train_op =  tf.train.GradientDescentOptimizer(learning_rate = self.learning_rate).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
+            train_op =  tf.train.GradientDescentOptimizer(learning_rate = self.learning_rate_tensor).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
         return train_op
 
 
