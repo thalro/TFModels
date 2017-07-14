@@ -289,12 +289,14 @@ class Resnet(TFBaseClassifier):
             self.train_step = self._train_step()
             self._init_vars()
         self.epoch_count+=1
+    
     def _init_vars(self):
         var_names = self.session.run( tf.report_uninitialized_variables( ) )
         
         var_list = [v for v in tf.global_variables() if v.name.split(':')[0] in var_names]
         
         self.session.run( tf.variables_initializer(var_list) )
+    
     def _opt_var_list(self):
         # control which variables are beeing optimized
         var_list = tf.trainable_variables()
@@ -303,6 +305,16 @@ class Resnet(TFBaseClassifier):
         if self.bottom_fixed:
             var_list = [v for v in var_list if 'base_model' not in v.name]
         return var_list
+
+    def _train_step(self):
+        #override for more fancy stuff
+        loss = self._loss_func() 
+        # this is needed for so that batch_normalization forks
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            
+            train_op =  tf.train.GradientDescentOptimizer(learning_rate = self.learning_rate).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
+        return train_op
 
 
 
