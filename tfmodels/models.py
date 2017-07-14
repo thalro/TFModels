@@ -230,7 +230,7 @@ class Resnet50(TFBaseClassifier):
 
 
 class Resnet(TFBaseClassifier):
-    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,**kwargs):
+    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,pool_size = 'full',**kwargs):
         if N not in range(7,50,3):
             print 'N must be one of ',range(7,50,3)
         if not N_fixed <=N:
@@ -242,12 +242,14 @@ class Resnet(TFBaseClassifier):
         keras.backend.set_session(self.session)
         self.N = N
         self.N_fixed = N_fixed
+        self.pool_size = pool_size
         self.fixed_layers = []
         self.train_feed_dict = {keras.backend.learning_phase():True}
         self.test_feed_dict = {keras.backend.learning_phase():False}
         self.epoch_count = 0
         self.fixed_epochs = fixed_epochs
         self.bottom_fixed = True
+
         
      
         
@@ -267,8 +269,11 @@ class Resnet(TFBaseClassifier):
                     self.fixed_layers.append(layer.name)
                     if layer.name == top_fixed_layer_name:
                         break
-            
-            pooled = tf.layers.average_pooling2d(last_layer,last_layer.shape[1:3],[1,1])
+            if self.pool_size == 'full':
+                pool_size = last_layer.shape[1:3]
+            else:
+                pool_size = [self.pool_size]*2
+            pooled = tf.layers.average_pooling2d(last_layer,pool_size,[1,1])
         
 
         last_activation = pooled
