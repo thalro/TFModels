@@ -281,21 +281,29 @@ class Resnet(TFBaseClassifier):
             elif self.pooling == 'max':
                 pooled = tf.layers.max_pooling2d(last_layer,pool_size,pool_size)
         
+        
+            
+        np.random.seed(self.random_state)
+        if self.random_state is not None:
+            tf.set_random_seed(self.random_state)
+        else:
+            tf.set_random_seed(np.random.randint(0,100000,1))
+
 
         last_activation = pooled
         flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
         
         last_activation = tf.reshape(last_activation,[-1,flat_shape])
-        
-        for i,n_hidden in enumerate(self.n_hiddens):
-            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
-            
-            linear = tf.layers.batch_normalization(linear,training = self.is_training)
-            
-            activation = tf.nn.relu(linear)
-            last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+        with  tf.variable_scope('dense_top'):
+            for i,n_hidden in enumerate(self.n_hiddens):
+                linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+                
+                linear = tf.layers.batch_normalization(linear,training = self.is_training)
+                
+                activation = tf.nn.relu(linear)
+                last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
 
-        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+            output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         return output
         
         

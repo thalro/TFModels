@@ -122,11 +122,10 @@ class TFBaseEstimator(BaseEstimator):
 
 
 
-    def get_tf_vars_as_ndarrays(self):
-        tf_vars = {}
-        for var in self.tf_vars.keys():
-            tf_vars[var] = self.session.run(self.tf_vars[var]).astype(npDtype)
-        return tf_vars
+    def get_tf_vars(self):
+        vars = tf.trainable_variables()
+        var_names = [v.name for v in vars]
+        return zip(self.session.run(vars),var_names)
     def save(self,fname):
         
         #tf_vars  =self.get_tf_vars_as_ndarrays()
@@ -310,7 +309,6 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # this is needed for so that batch_normalization forks
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            print self._opt_var_list()
             train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
         return train_op
 
