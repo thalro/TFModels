@@ -281,11 +281,12 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         iteration = 0
         
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
-            self._iteration_callback()
+            
             self.learning_rate = learning_rate
             
             batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,start_iteration = iteration,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = True)
             for i,(Xbatch,ybatch,iteration) in enumerate(batches):
+                self._iteration_callback()
                 feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True,self.learning_rate_tensor:self.learning_rate}
                 feed_dict.update(self.train_feed_dict)
                 self.session.run(self.train_step,feed_dict = feed_dict)

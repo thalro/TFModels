@@ -251,11 +251,20 @@ class Resnet(TFBaseClassifier):
         self.test_feed_dict = {keras.backend.learning_phase():False}
         self.epoch_count = 0
         self.fixed_epochs = fixed_epochs
-        self.bottom_fixed = True
+        self.bottom_fixed_ = True
 
         
-     
-        
+    @property
+    def bottom_fixed(self):
+        return self.bottom_fixed_
+    @bottom_fixed.setter 
+    def bottom_fixed(self,value):
+        if value == self.bottom_fixed_:
+            return
+        self.bottom_fixed_ = value
+        print 'switched bottom fixed to ',self.bottom_fixed_
+        self.train_step = self._train_step()
+        self._init_vars()
     def _predict_step(self):
         with  tf.variable_scope('base_model'):
             
@@ -308,17 +317,14 @@ class Resnet(TFBaseClassifier):
         
         
     def _iteration_callback(self):
-
-        old_state = self.bottom_fixed
-        if self.epoch_count<self.fixed_epochs:
-            self.bottom_fixed = True
-        if self.epoch_count>=self.fixed_epochs:
-            self.bottom_fixed = False
-        if old_state!=self.bottom_fixed:
-            print 'switched bottom fixed to ',self.bottom_fixed
-            self.train_step = self._train_step()
-            self._init_vars()
         self.epoch_count+=1
+       
+        if self.epoch_count<=self.fixed_epochs:
+            self.bottom_fixed = True
+        if self.epoch_count>self.fixed_epochs:
+            self.bottom_fixed = False
+            
+        
     
     def _init_vars(self):
         var_names = self.session.run( tf.report_uninitialized_variables( ) )
