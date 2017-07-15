@@ -307,6 +307,7 @@ class Resnet(TFBaseClassifier):
         if self.epoch_count>=self.fixed_epochs:
             self.bottom_fixed = False
         if old_state!=self.bottom_fixed:
+            print 'switched bottom fixed to ',self.bottom_fixed
             self.train_step = self._train_step()
             self._init_vars()
         self.epoch_count+=1
