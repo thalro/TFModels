@@ -278,7 +278,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         #ensure that iterations is list in case it has been changed
         if not isinstance(self.iterations, (list, tuple, np.ndarray)):
             self.iterations = [self.iterations]
-        iteration = 0
+        current_iteration = 0
         
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
             
@@ -286,7 +286,9 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             
             batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,start_iteration = iteration,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = True)
             for i,(Xbatch,ybatch,iteration) in enumerate(batches):
-                self._iteration_callback()
+                if iteration>current_iteration:
+                    current_iteration+=1
+                    self._iteration_callback()
                 feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True,self.learning_rate_tensor:self.learning_rate}
                 feed_dict.update(self.train_feed_dict)
                 self.session.run(self.train_step,feed_dict = feed_dict)
