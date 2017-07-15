@@ -310,7 +310,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # this is needed for so that batch_normalization forks
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            
+            print self._opt_var_list()
             train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
         return train_op
 
