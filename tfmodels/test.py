@@ -738,7 +738,7 @@ class TestResnet(unittest.TestCase):
         rsn = RSN(N=10,N_fixed =10,fixed_epochs=2,random_state = 1,iterations = 2,batchsize =8)
         rsn.fit(X, y)
         vars1 =  rsn.get_tf_vars()
-        rsn = RSN(N=10,N_fixed =None,fixed_epochs=1,random_state = 1,iterations = 2,batchsize =8)
+        rsn = RSN(N=10,N_fixed =None,fixed_epochs=1,random_state = 1,iterations = 2,batchsize =8,learning_rate = 0.1)
         rsn.fit(X, y)
 
         vars2 =  rsn.get_tf_vars()
