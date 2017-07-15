@@ -618,7 +618,7 @@ class TestResnet(unittest.TestCase):
     # def test_import_and_init(self):
     #     from models import Resnet as RSN
 
-    #     rsn = RSN(N=10,N_fixed =7)
+    #     rsn = RSN(N=10,N_fixed =7,batchsize =8)
 
 
     
@@ -635,7 +635,7 @@ class TestResnet(unittest.TestCase):
     #     pred = np.zeros_like(y).astype(float)
     #     xval = StratifiedKFold(n_splits=3)
     #     for train,test in xval.split(X,y):
-    #         rsn = RSN(N=10,N_fixed =7)
+    #         rsn = RSN(N=10,N_fixed =7,batchsize =8)
     #         rsn.fit(X[train],y[train])
     #         pred = rsn.predict_proba(X[test])[:,1]
         
@@ -645,19 +645,19 @@ class TestResnet(unittest.TestCase):
     #     X = np.random.rand(4,224,224,3)
     #     y = np.random.randint(0,2,4)
 
-    #     rsn = RSN(N=10,N_fixed =7,random_state = 1,iterations = 1)
+    #     rsn = RSN(N=10,N_fixed =7,random_state = 1,iterations = 1,batchsize =8)
     #     rsn.fit(X, y)
     #     p1 = rsn.predict_proba(X)
         
-    #     rsn = RSN(N=10,N_fixed =7,random_state = 1,iterations = 1)
+    #     rsn = RSN(N=10,N_fixed =7,random_state = 1,iterations = 1,batchsize =8)
     #     rsn.fit(X, y)
     #     p2 = rsn.predict_proba(X)
 
-    #     rsn = RSN(N=10,N_fixed =7,random_state = 2,iterations = 1)
+    #     rsn = RSN(N=10,N_fixed =7,random_state = 2,iterations = 1,batchsize =8)
     #     rsn.fit(X, y)
     #     p3 = rsn.predict_proba(X)
 
-    #     rsn = RSN(N=10,N_fixed =7,random_state = None,iterations = 1)
+    #     rsn = RSN(N=10,N_fixed =7,random_state = None,iterations = 1,batchsize =8)
     #     rsn.fit(X, y)
     #     p4 = rsn.predict_proba(X)
 
@@ -676,7 +676,7 @@ class TestResnet(unittest.TestCase):
     #     y = np.random.randint(0,2,4)
         
 
-    #     rsn = RSN(N=10,N_fixed =7,dropout = 0.5)
+    #     rsn = RSN(N=10,N_fixed =7,dropout = 0.5,batchsize =8)
     #     rsn.fit(X, y)
     #     y1 = rsn.predict_proba(X)
     #     tmpfile = 'tempsave'
@@ -684,7 +684,7 @@ class TestResnet(unittest.TestCase):
     #     rsn.save(tmpfile)
         
         
-    #     rsn2 = RSN()
+    #     rsn2 = RSN(N=10,N_fixed =7,dropout = 0.5,batchsize =8)
 
     #     rsn2.load(tmpfile)
     #     y2 = rsn.predict_proba(X)
@@ -702,7 +702,7 @@ class TestResnet(unittest.TestCase):
         X = np.random.rand(4,224,224,3)
         y = np.random.randint(0,2,4)
 
-        rsn = RSN(N=10,N_fixed =7,fixed_epochs=2,random_state = 1,iterations = 1,learning_rate = 0.1)
+        rsn = RSN(N=10,N_fixed =7,fixed_epochs=2,random_state = 1,iterations = 1,learning_rate = 0.1,batchsize =8)
         rsn.fit(X, y)
         
         vars0 =  rsn.get_tf_vars()
@@ -735,10 +735,10 @@ class TestResnet(unittest.TestCase):
         self.assertTrue(base_changed)
 
 
-        rsn = RSN(N=10,N_fixed =10,fixed_epochs=2,random_state = 1,iterations = 2)
+        rsn = RSN(N=10,N_fixed =10,fixed_epochs=2,random_state = 1,iterations = 2,batchsize =8)
         rsn.fit(X, y)
         vars1 =  rsn.get_tf_vars()
-        rsn = RSN(N=10,N_fixed =None,fixed_epochs=1,random_state = 1,iterations = 2)
+        rsn = RSN(N=10,N_fixed =None,fixed_epochs=1,random_state = 1,iterations = 2,batchsize =8)
         rsn.fit(X, y)
 
         vars2 =  rsn.get_tf_vars()
