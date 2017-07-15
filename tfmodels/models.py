@@ -230,7 +230,7 @@ class Resnet50(TFBaseClassifier):
 
 
 class Resnet(TFBaseClassifier):
-    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,pool_size = 'full',pooling = 'avg',**kwargs):
+    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,n_hiddens = [],dropout = 0,pool_size = 'full',pooling = 'avg',**kwargs):
         if N not in range(7,50,3):
             print 'N must be one of ',range(7,50,3)
         if not N_fixed <=N:
@@ -245,6 +245,8 @@ class Resnet(TFBaseClassifier):
         self.pool_size = pool_size
         self.pooling = pooling
         self.fixed_layers = []
+        self.n_hiddens = n_hiddens
+        self.dropout = dropout
         self.train_feed_dict = {keras.backend.learning_phase():True}
         self.test_feed_dict = {keras.backend.learning_phase():False}
         self.epoch_count = 0
@@ -284,6 +286,15 @@ class Resnet(TFBaseClassifier):
         flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
         
         last_activation = tf.reshape(last_activation,[-1,flat_shape])
+        
+        for i,n_hidden in enumerate(self.n_hiddens):
+            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+            
+            linear = tf.layers.batch_normalization(linear,training = self.is_training)
+            
+            activation = tf.nn.relu(linear)
+            last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+
         output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         return output
         
