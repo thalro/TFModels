@@ -279,7 +279,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         if not isinstance(self.iterations, (list, tuple, np.ndarray)):
             self.iterations = [self.iterations]
         current_iteration = 0
-        
+        iteration  = 0
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
             
             self.learning_rate = learning_rate
