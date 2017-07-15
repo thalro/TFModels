@@ -192,7 +192,7 @@ class Resnet50(TFBaseClassifier):
     def _predict_step(self):
         with  tf.variable_scope('base_model'):
             
-            base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
+            base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x,pooling= 'max')
         
 
         last_activation = base_model.output
@@ -230,7 +230,7 @@ class Resnet50(TFBaseClassifier):
 
 
 class Resnet(TFBaseClassifier):
-    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,pool_size = 'full',**kwargs):
+    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,pool_size = 'full',pooling = 'avg',**kwargs):
         if N not in range(7,50,3):
             print 'N must be one of ',range(7,50,3)
         if not N_fixed <=N:
@@ -243,6 +243,7 @@ class Resnet(TFBaseClassifier):
         self.N = N
         self.N_fixed = N_fixed
         self.pool_size = pool_size
+        self.pooling = pooling
         self.fixed_layers = []
         self.train_feed_dict = {keras.backend.learning_phase():True}
         self.test_feed_dict = {keras.backend.learning_phase():False}
@@ -273,7 +274,10 @@ class Resnet(TFBaseClassifier):
                 pool_size = last_layer.shape[1:3]
             else:
                 pool_size = [self.pool_size]*2
-            pooled = tf.layers.average_pooling2d(last_layer,pool_size,[1,1])
+            if self.pooling == 'avg':
+                pooled = tf.layers.average_pooling2d(last_layer,pool_size,pool_size)
+            elif self.pooling == 'max':
+                pooled = tf.layers.max_pooling2d(last_layer,pool_size,pool_size)
         
 
         last_activation = pooled
@@ -312,15 +316,15 @@ class Resnet(TFBaseClassifier):
             var_list = [v for v in var_list if 'base_model' not in v.name]
         return var_list
 
-    def _train_step(self):
-        #override for more fancy stuff
-        loss = self._loss_func() 
-        # this is needed for so that batch_normalization forks
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
+    # def _train_step(self):
+    #     #override for more fancy stuff
+    #     loss = self._loss_func() 
+    #     # this is needed for so that batch_normalization forks
+    #     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    #     with tf.control_dependencies(update_ops):
             
-            train_op =  tf.train.GradientDescentOptimizer(learning_rate = self.learning_rate_tensor).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
-        return train_op
+    #         train_op =  tf.train.GradientDescentOptimizer(learning_rate = self.learning_rate_tensor).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
+    #     return train_op
 
 
 
