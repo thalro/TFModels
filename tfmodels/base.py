@@ -241,12 +241,14 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             self.learning_rate_tensor = tf.placeholder(tf.float32,shape = [],name = 'learning_rate')
             # create graph
             self.predict_step = self._predict_step()
+            self.loss = self._loss_func()
             # op for train step
             self.train_step = self._train_step()
             if self.output_type == 'softmax':
                 self.prediction = tf.nn.softmax(self.predict_step)
             elif self.output_type == 'sigmoid':
                 self.prediction = tf.nn.sigmoid(self.predict_step)
+
         
         # initialize variables
         if not self.warm_start:
@@ -308,7 +310,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
                 if self.verbose and  i%self.print_interval ==0:
                     feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:False}
                     feed_dict.update(self.test_feed_dict)
-                    loss = self.session.run(self._loss_func(),feed_dict = feed_dict)
+                    loss = self.session.run(self.loss,feed_dict = feed_dict)
                     print 'iteration ',iteration,', batch ',i ,', loss ',loss,', learning rate ',learning_rate
             
     def _loss_func(self):
@@ -320,11 +322,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         return loss
     def _train_step(self):
         #override for more fancy stuff
-        loss = self._loss_func() 
+        
         # this is needed for so that batch_normalization forks
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
+            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor,epsilon = self.epsilon).minimize(self.loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
         return train_op
 
     def _iteration_callback(self):
