@@ -22,8 +22,8 @@ sc = StandardScaler()
 X = sc.fit_transform(X)
 
 # divide up into train and test sets
-X_train, X_test = X[:60000], X[60000:]
-y_train, y_test = y[:60000], y[60000:]
+X_train, X_test = X[:10000], X[60000:]
+y_train, y_test = y[:10000], y[60000:]
 
 # create a DNN
 dnn = DNN(n_hiddens = [500,500],batchsize =512,iterations = 10,

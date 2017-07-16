@@ -12,6 +12,7 @@ from random import choice
 def _random_rotation(image):
     angle = choice([0.,90.,180.,270.])
     angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
+    #print angle
     return rotate(image,angle,resize = False)
 def _random_rescaling(image):
     # rescale between +/- 25%
@@ -40,8 +41,8 @@ class ImageAugmenter(object):
         self.transform_prob =  transform_prob
     def fit(self,X,y=None):
         pass
-    def fit_transform(self,X,y=None):
-        return self.transform(X)
+    def fit_transform(self,X,y=None,is_training = False):
+        return self.transform(X,is_training)
     def transform(self,X,is_training = False):
         
         X_out = X.copy()
@@ -51,12 +52,31 @@ class ImageAugmenter(object):
                 for transform in transform_list:
                     
                     if pylab.rand()<self.transform_prob:
-                       X_out[i] = transform(X[i])
+
+                       X_out[i] = transform(X[i]) 
+
         
         return X_out
+
+class ImageNetScaler(object):
+    """ this seems to be required for models pretrained
+        on imagenet. """
+   
+    def fit(self,X,y=None):
+        pass
+    def fit_transform(self,X,y=None):
+        return self.transform(X)
+    def transform(self,X,is_training = False):
+        X_out = X.copy()
+        if not X_out.max()>1.:
+            X_out *= 255.
+        X_out = X_out[:, :, :, ::-1]
+        # Zero-center by mean pixel
+        X_out[:, :, :, 0] -= 103.939
+        X_out[:, :, :, 1] -= 116.779
+        X_out[:, :, :, 2] -= 123.68
+        return X_out
       
-
-
 def accuracy(y_true,y_pred):
     return (y_true==y_pred).mean()
 
@@ -186,27 +206,33 @@ class NetworkTrainer(BaseEstimator):
     def fit(self,X,y):
         if self.live_plot:
             self.init_plot()
-        if self.train_inds is None:
+        if self.train_inds is None or len(self.valid_inds)+len(self.train_inds)!=X.shape[0]:
             inds = np.arange(X.shape[0])
             np.random.shuffle(inds)
             n_valid = int(self.valid_fraction*len(inds))
             self.valid_inds = inds[:n_valid]
             self.train_inds = inds[n_valid:] 
-
+        X_train = X[self.train_inds]
+        y_train = y[self.train_inds]
+        X_valid = X[self.valid_inds]
+        y_valid = y[self.valid_inds]
         while self.current_iteration < self.max_epochs:
             self.model.iterations = 1
             print self.current_iteration
-            self.model.fit(X[self.train_inds],y[self.train_inds],warm_start = self.model.is_fitted)
+            print 'fitting model'
+            self.model.fit(X_train,y_train,warm_start = self.model.is_fitted) 
             self.model_params[self.current_iteration] = self.model.get_params()
             self.current_iteration += 1
-            
-            self.train_loss.append(self.score_func(y[self.train_inds],self.model.predict(X[self.train_inds])))
-            self.valid_loss.append(self.score_func(y[self.valid_inds],self.model.predict(X[self.valid_inds])))
+            print 'computing training score'
+            self.train_loss.append(self.score_func(y_train,self.model.predict(X_train)))
+            print 'computing validation score'
+            self.valid_loss.append(self.score_func(y_valid,self.model.predict(X_valid)))
             
             self._update_plot()
 
             if self.save_interval is not None:
                 if (self.current_iteration-self.last_saved) >= self.save_interval:
+                    print 'saving model'
                     self.save()
                     self.last_saved = self.current_iteration
 
@@ -234,3 +260,5 @@ class NetworkTrainer(BaseEstimator):
 
 
         
+class BaggingClassifier(object):
+    pass

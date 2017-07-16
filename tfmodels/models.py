@@ -10,6 +10,7 @@ import cPickle as pickle
 from copy import deepcopy
 
 import tensorflow as tf
+from tensorflow.contrib import keras
 
 
 from .base import TFBaseEstimator,TFBaseClassifier,tfDtype,npDtype
@@ -176,69 +177,228 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
         return output
 
 
-class CascadeConvolutionalNeuralNet(TFBaseClassifier):
 
-    def __init__(self,n_filters = [5,5],filter_sizes = [[3,3],[3,3]],strides =[1,1],pooling = [2],pooling_strides = [1],n_hiddens = [5],dropout=0.2,batch_normalization = True,**kwargs):
-        
-        super(CascadeConvolutionalNeuralNet,self).__init__(**kwargs)
-        
-        self.n_filters = n_filters
-        assert len(filter_sizes)==len(n_filters) ,  ValueError('n_filters and filter_sizes must be lists of same length')
-
-        self.filter_sizes = filter_sizes
-        assert len(strides)==len(n_filters), ValueError('n_filters and strides must be lists of same length')
-        self.strides = strides
-        assert len(pooling)==len(n_filters)-1 or len(pooling)==len(n_filters),  ValueError('pooling  must have same length as n_filters or one element less')
-        assert len(pooling)==len(pooling_strides),ValueError('pooling be same length as pooling strides')
-        self.pooling = pooling
-        self.pooling_strides = pooling_strides
-        if len(pooling)<len(filter_sizes):
-            self.pooling += [None]
-            self.pooling_strides += [None]
+class KerasApplication(TFBaseClassifier):
+    def __init__(self,fixed_epochs =10,n_hiddens = [4096,4096],dropout = 0,pooling = None,application = None,**kwargs):
        
-
+        super(KerasApplication, self).__init__(**kwargs)
+        keras.backend.set_session(self.session)
+       
+        self.pooling = pooling
+        self.fixed_layers = []
         self.n_hiddens = n_hiddens
         self.dropout = dropout
-        self.batch_normalization = batch_normalization
-        self.total_n_samples = 0
+        self.train_feed_dict = {keras.backend.learning_phase():True}
+        self.test_feed_dict = {keras.backend.learning_phase():False}
+        self.epoch_count = 0
+        self.fixed_epochs = fixed_epochs
+        self.bottom_fixed_ = True
 
-    def _predict_step(self):
+        if isinstance(application, basestring):
+            self.application = eval( 'keras.applications.'+application)
+        else:
+            self.application=application
+
         
-        last_activation =self.x
-        all_outputs = []
-        for i,(n_filter,filter_size,stride,pooling,pooling_strides) in enumerate(zip(self.n_filters,
-                                                                                     self.filter_sizes,
-                                                                                     self.strides,
-                                                                                     self.pooling,
-                                                                                     self.pooling_strides)):
-            conv = tf.layers.conv2d(last_activation,n_filter,filter_size,strides=stride)
-            if self.batch_normalization:
-                conv = tf.layers.batch_normalization(conv,training = self.is_training)
-            activation = tf.nn.relu(conv)
-            if pooling is None:
-                # last layer, pool over whole field
-                pooling = activation.shape[1:3]
-                pooling_strides = 1
-            last_activation = tf.layers.max_pooling2d(activation,pooling,pooling_strides)
-            all_outputs.append(last_activation)
-        flat_outputs = []
-        for output in all_outputs:
-            flat_shape =  int(output.shape[1]*output.shape[2]*output.shape[3])
+    @property
+    def bottom_fixed(self):
+        return self.bottom_fixed_
+    @bottom_fixed.setter 
+    def bottom_fixed(self,value):
+        if value == self.bottom_fixed_:
+            return
+        self.bottom_fixed_ = value
+        print 'switched bottom fixed to ',self.bottom_fixed_
+        self.train_step = self._train_step()
+        self._init_vars()
+    
+    def _predict_step(self):
+        with  tf.variable_scope('base_model'):
             
-            output = tf.reshape(output,[-1,flat_shape])
-            flat_outputs.append(output)
-        last_activation = tf.concat(flat_outputs,1)
-        for i,n_hidden in enumerate(self.n_hiddens):
-            linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+            base_model = self.application(include_top = False,pooling = self.pooling)
+            base_output = base_model(self.x)
             
-            if self.batch_normalization:
-                linear = tf.layers.batch_normalization(linear,training = self.is_training)
             
-            activation = tf.nn.relu(linear)
-            last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+            
+           
+        
+        
+            
+        np.random.seed(self.random_state)
+        if self.random_state is not None:
+            tf.set_random_seed(self.random_state)
+        else:
+            tf.set_random_seed(np.random.randint(0,100000,1))
 
-        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+
+        last_activation = base_output
+        flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
+        
+        last_activation = tf.reshape(last_activation,[-1,flat_shape])
+        with  tf.variable_scope('dense_top'):
+            for i,n_hidden in enumerate(self.n_hiddens):
+                linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+                
+                linear = tf.layers.batch_normalization(linear,training = self.is_training)
+                
+                activation = tf.nn.relu(linear)
+                last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+
+            output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         return output
+        
+        
+    def _iteration_callback(self):
+        self.epoch_count+=1
+       
+        if self.epoch_count<=self.fixed_epochs:
+            self.bottom_fixed = True
+        if self.epoch_count>self.fixed_epochs:
+            self.bottom_fixed = False
+            
+        
+    
+    def _init_vars(self):
+        var_names = self.session.run( tf.report_uninitialized_variables( ) )
+        
+        var_list = [v for v in tf.global_variables() if v.name.split(':')[0] in var_names]
+        
+        self.session.run( tf.variables_initializer(var_list) )
+    
+    def _opt_var_list(self):
+        # control which variables are beeing optimized
+        var_list = tf.trainable_variables()
+        for fixed in self.fixed_layers:
+            var_list =  [v for v in var_list if fixed not in v.name]
+        if self.bottom_fixed:
+            var_list = [v for v in var_list if 'base_model' not in v.name]
+        return var_list
+
+
+
+class Resnet(TFBaseClassifier):
+    def __init__(self,N = 34,N_fixed =22,fixed_epochs =10,n_hiddens = [],dropout = 0,pool_size = 'full',pooling = 'avg',**kwargs):
+        if N not in range(7,50,3):
+            print 'N must be one of ',range(7,50,3)
+        if not N_fixed <=N:
+            print 'N_fixed must be smaller than N'
+        if N_fixed not in range(7,50,3)+[None]:
+            print 'N_fixed must be one of ',range(7,50,3),' or None'
+
+        super(Resnet, self).__init__(**kwargs)
+        keras.backend.set_session(self.session)
+        self.N = N
+        self.N_fixed = N_fixed
+        self.pool_size = pool_size
+        self.pooling = pooling
+        self.fixed_layers = []
+        self.n_hiddens = n_hiddens
+        self.dropout = dropout
+        self.train_feed_dict = {keras.backend.learning_phase():True}
+        self.test_feed_dict = {keras.backend.learning_phase():False}
+        self.epoch_count = 0
+        self.fixed_epochs = fixed_epochs
+        self.bottom_fixed_ = True
+
+        
+    @property
+    def bottom_fixed(self):
+        return self.bottom_fixed_
+    @bottom_fixed.setter 
+    def bottom_fixed(self,value):
+        if value == self.bottom_fixed_:
+            return
+        self.bottom_fixed_ = value
+        print 'switched bottom fixed to ',self.bottom_fixed_
+        self.train_step = self._train_step()
+        self._init_vars()
+    def _predict_step(self):
+        with  tf.variable_scope('base_model'):
+            
+            base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x)
+            top_layer_name = 'activation_'+str(self.N)
+            top_fixed_layer_name = 'activation_'+str(self.N_fixed)
+            
+            while base_model.layers[-1].name != top_layer_name:
+                base_model.layers.pop()
+            last_layer = base_model.layers[-1].output
+            # collect allways fixed layers
+            if self.N_fixed is not None:
+                for layer in base_model.layers:
+                    self.fixed_layers.append(layer.name)
+                    if layer.name == top_fixed_layer_name:
+                        break
+            if self.pool_size == 'full':
+                pool_size = last_layer.shape[1:3]
+            else:
+                pool_size = [self.pool_size]*2
+            if self.pooling == 'avg':
+                pooled = tf.layers.average_pooling2d(last_layer,pool_size,pool_size)
+            elif self.pooling == 'max':
+                pooled = tf.layers.max_pooling2d(last_layer,pool_size,pool_size)
+        
+        
+            
+        np.random.seed(self.random_state)
+        if self.random_state is not None:
+            tf.set_random_seed(self.random_state)
+        else:
+            tf.set_random_seed(np.random.randint(0,100000,1))
+
+
+        last_activation = pooled
+        flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
+        
+        last_activation = tf.reshape(last_activation,[-1,flat_shape])
+        with  tf.variable_scope('dense_top'):
+            for i,n_hidden in enumerate(self.n_hiddens):
+                linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+                
+                linear = tf.layers.batch_normalization(linear,training = self.is_training)
+                
+                activation = tf.nn.relu(linear)
+                last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+
+            output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+        return output
+        
+        
+    def _iteration_callback(self):
+        self.epoch_count+=1
+       
+        if self.epoch_count<=self.fixed_epochs:
+            self.bottom_fixed = True
+        if self.epoch_count>self.fixed_epochs:
+            self.bottom_fixed = False
+            
+        
+    
+    def _init_vars(self):
+        var_names = self.session.run( tf.report_uninitialized_variables( ) )
+        
+        var_list = [v for v in tf.global_variables() if v.name.split(':')[0] in var_names]
+        
+        self.session.run( tf.variables_initializer(var_list) )
+    
+    def _opt_var_list(self):
+        # control which variables are beeing optimized
+        var_list = tf.trainable_variables()
+        for fixed in self.fixed_layers:
+            var_list =  [v for v in var_list if fixed not in v.name]
+        if self.bottom_fixed:
+            var_list = [v for v in var_list if 'base_model' not in v.name]
+        return var_list
+
+    # def _train_step(self):
+    #     #override for more fancy stuff
+    #     loss = self._loss_func() 
+    #     # this is needed for so that batch_normalization forks
+    #     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    #     with tf.control_dependencies(update_ops):
+            
+    #         train_op =  tf.train.GradientDescentOptimizer(learning_rate = self.learning_rate_tensor).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
+    #     return train_op
+
 
 
 

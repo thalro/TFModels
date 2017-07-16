@@ -122,11 +122,10 @@ class TFBaseEstimator(BaseEstimator):
 
 
 
-    def get_tf_vars_as_ndarrays(self):
-        tf_vars = {}
-        for var in self.tf_vars.keys():
-            tf_vars[var] = self.session.run(self.tf_vars[var]).astype(npDtype)
-        return tf_vars
+    def get_tf_vars(self):
+        vars = tf.trainable_variables()
+        var_names = [v.name for v in vars]
+        return zip(self.session.run(vars),var_names)
     def save(self,fname):
         
         #tf_vars  =self.get_tf_vars_as_ndarrays()
@@ -168,6 +167,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.feature_shape = None
         self.n_outputs = None
         self.warm_start = False
+        self.learning_rate_tensor = None
         self.random_state = random_state
         # learning rate and iterations can also be lists
         if not isinstance(iterations, (list, tuple, np.ndarray)):
@@ -191,6 +191,8 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.batch_preprocessors = batch_preprocessors
         self.batch_preprocessor_args = batch_preprocessor_args
         
+        self.train_feed_dict = {}
+        self.test_feed_dict = {}
         
 
     def fit(self,X,y,warm_start = False):
@@ -223,8 +225,9 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         if not self.is_fitted:
             # place holder for the input and output
-            self.x = tf.placeholder(tf.float32,[None]+self.feature_shape)
-            self.y = tf.placeholder(tf.float32,[None,self.n_outputs])
+            self.x = tf.placeholder(tf.float32,[None]+self.feature_shape,name = 'self.x')
+            self.y = tf.placeholder(tf.float32,[None,self.n_outputs],name = 'self.y')
+            self.learning_rate_tensor = tf.placeholder(tf.float32,shape = [],name = 'learning_rate')
             # create graph
             self.predict_step = self._predict_step()
             # op for train step
@@ -236,22 +239,28 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         
         # initialize variables
         if not self.warm_start:
-            self.session.run(tf.global_variables_initializer())
+            self._init_vars()
         # run the training
         self._train_loop(X,bin_y)
         self.is_fitted = True
         self.batchsize = original_batchsize
         return self
-    
+    def _init_vars(self):
+        self.session.run(tf.global_variables_initializer())
+    def _opt_var_list(self):
+        return tf.trainable_variables()
     def predict_proba(self,X):
         if not self.is_fitted:
             print 'not fitted'
             return
-
+        
         output = []
-        for batch,i in BatchIndGernerator(self.batchsize, X.shape[0], 1,shuffle = False):
+        batches = BatchGernerator(X,None,self.batchsize,1,shuffle = False,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = False)
+        for (Xbatch,ybatch,iteration) in batches:
+            feed_dict = {self.x:Xbatch.astype(float),self.is_training:False}
+            feed_dict.update(self.test_feed_dict)
             
-            output.append(self.session.run(self.prediction,feed_dict={self.x:X[batch].astype(float),self.is_training:False}))
+            output.append(self.session.run(self.prediction,feed_dict=feed_dict))
         return np.concatenate(output,axis =0)
     
     def predict(self,X):
@@ -269,17 +278,25 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         #ensure that iterations is list in case it has been changed
         if not isinstance(self.iterations, (list, tuple, np.ndarray)):
             self.iterations = [self.iterations]
-        iteration = 0
-        
+        current_iteration = 0
+        iteration  = 0
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
+            
             self.learning_rate = learning_rate
             
             batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,start_iteration = iteration,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = True)
             for i,(Xbatch,ybatch,iteration) in enumerate(batches):
-                self.session.run(self.train_step,feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True})
+                if iteration>current_iteration:
+                    current_iteration+=1
+                    self._iteration_callback()
+                feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:True,self.learning_rate_tensor:self.learning_rate}
+                feed_dict.update(self.train_feed_dict)
+                self.session.run(self.train_step,feed_dict = feed_dict)
                 
                 if self.verbose and  i%self.print_interval ==0:
-                    loss = self.session.run(self._loss_func(),feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:False})
+                    feed_dict = {self.x:Xbatch,self.y:ybatch,self.is_training:False}
+                    feed_dict.update(self.test_feed_dict)
+                    loss = self.session.run(self._loss_func(),feed_dict = feed_dict)
                     print 'iteration ',iteration,', batch ',i ,', loss ',loss,', learning rate ',learning_rate
             
     def _loss_func(self):
@@ -295,10 +312,13 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         # this is needed for so that batch_normalization forks
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            
-            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor)
+            train_op =  tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor,epsilon = self.epsilon).minimize(loss,global_step = self.global_step_tensor,var_list = self._opt_var_list())
         return train_op
-    
+
+    def _iteration_callback(self):
+        # this is executed at the beginning of each iteration 
+        # and can be overridden with useful stuff
+        return None
     def _create_graph(self):
         # this needs to be filled
         raise NotImplementedError
