@@ -85,7 +85,10 @@ class BatchGernerator(object):
         else:
             ybatch = None
         for prep in self.preprocessors:
-            Xbatch = prep.transform(Xbatch,is_training = self.is_training)
+            try:
+                Xbatch = prep.fit_transform(Xbatch,ybatch,is_training = self.is_training)
+            except:
+                Xbatch = prep.fit_transform(Xbatch,ybatch)
         return Xbatch,ybatch,currrentiteration
 
 
@@ -142,11 +145,16 @@ class TFBaseEstimator(BaseEstimator):
     def load(self,fname):
         params,is_fitted = pickle.load(open(fname+'.params'))
         self.set_params(**params)
-        
-        self.if_fitted = is_fitted
-
-        saver = tf.train.import_meta_graph(fname+'.session.meta')
+        # fit has to be run to construct the graph first
+        iterations = self.iterations
+        self.iterations  =0
+        dummy_X = np.zeros([1]+list(self.feature_shape))
+        dummy_y = np.zeros([1,self.n_outputs])
+        self.fit(dummy_X,dummy_y)
+        self.iterations  =iterations
+        saver = tf.train.Saver()#import_meta_graph(fname+'.session.meta')
         saver.restore(self.session,fname+'.session')
+        
     def __del__(self):
         self.session.close()
         del self.session
@@ -157,7 +165,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         this class should be instantiated.
         """
 
-    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,multilabel = False,multilabel_threshold = 0.2,batch_preprocessors = [], batch_preprocessor_args = [],*kwargs):
+    def __init__(self,random_state=None,learning_rate = 0.1,learning_rates=None,iterations = 10,batchsize = None,print_interval= 10,verbose = False,output_type ='softmax',epsilon = 1e-9,multilabel = False,multilabel_threshold = 0.2,batch_preprocessors = [], batch_preprocessor_args = [],feature_shape = None,n_outputs = None,*kwargs):
         super(TFBaseClassifier, self).__init__(*kwargs) 
 
         self.classes_ = None
@@ -168,7 +176,10 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.n_outputs = None
         self.warm_start = False
         self.learning_rate_tensor = None
+        self.prediction = None
         self.random_state = random_state
+        self.feature_shape = feature_shape
+        self.n_outputs = n_outputs
         # learning rate and iterations can also be lists
         if not isinstance(iterations, (list, tuple, np.ndarray)):
             iterations = [iterations]
@@ -245,6 +256,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         self.is_fitted = True
         self.batchsize = original_batchsize
         return self
+
     def _init_vars(self):
         self.session.run(tf.global_variables_initializer())
     def _opt_var_list(self):

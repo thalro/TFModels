@@ -1,12 +1,16 @@
 import os
 import numpy as np
+import scipy
 import pylab
 
 import cPickle as pickle
 
 from sklearn.base import BaseEstimator
 from skimage.transform import rotate,resize
+from sklearn.linear_model import LogisticRegression as LR
 from random import choice
+
+from scipy import interpolate
 
 
 def _random_rotation(image):
@@ -36,9 +40,11 @@ def _random_rescaling(image):
         image = scaled[xoffset:xoffset+originalsize[0],yoffset:yoffset+originalsize[1]]
     return image
 
+
 class ImageAugmenter(object):
-    def __init__(self,transform_prob = 0.2):
+    def __init__(self,transform_prob = 0.5,TTA = False):
         self.transform_prob =  transform_prob
+        self.TTA = TTA
     def fit(self,X,y=None):
         pass
     def fit_transform(self,X,y=None,is_training = False):
@@ -46,7 +52,7 @@ class ImageAugmenter(object):
     def transform(self,X,is_training = False):
         
         X_out = X.copy()
-        if is_training:
+        if is_training or self.TTA:
             for i in range(X.shape[0]):
                 transform_list = [pylab.fliplr,pylab.flipud,_random_rotation,_random_rescaling]
                 for transform in transform_list:
@@ -259,6 +265,150 @@ class NetworkTrainer(BaseEstimator):
                     pass
 
 
+
+
+
+def weighted_randint(weights, size=None):
+    """Given an n-element vector of weights, randomly sample
+    integers up to n with probabilities proportional to weights"""
+    n = weights.size
+    # normalize so that the weights sum to unity
+    weights = weights / np.linalg.norm(weights, 1)
+    # cumulative sum of weights
+    cumulative_weights = weights.cumsum()
+    # piecewise-linear interpolating function whose domain is
+    # the unit interval and whose range is the integers up to n
+    f = scipy.interpolate.interp1d(
+            np.hstack((0.0, cumulative_weights)),
+            np.arange(n + 1), kind='linear')
+    return f(np.random.random(size=size)).astype(int)
         
+    
+
+
+def bootstrap_samples(n,n_samples=None,sample_weights = None):
+    
+    if n_samples is None:
+        n_samples = n
+    if sample_weights is None:
+        sample_weights = pylab.ones((n)).astype(float)
+    
+    assert len(sample_weights) == n, 'sample_weights has wrong shape'
+    sample_weights = sample_weights.astype(float)
+    all_samples = pylab.arange(n)
+    inbag = weighted_randint(sample_weights,n_samples)
+    oob = pylab.array(list(set(all_samples).difference(set(inbag))))
+    assert len(set(inbag).intersection(set(oob)))==0
+    return inbag,oob
+
+def _save_estimator(estimator,fname):
+    """check if estimator has a save function. otherwise pickle"""
+    if hasattr(estimator,'save'):
+        estimator.save(fname)
+    else:
+        pickle.dump(estimator,open(fname,'w'),protocol  = 2)
+def _load_estimator(estimator,fname):
+    """loads estimators saved by _save_estimator"""
+    if hasattr(estimator,'load'):
+        estimator.load(fname)
+    else:
+        estimator = pickle.load(open(fname))
+    return estimator
+
 class BaggingClassifier(object):
-    pass
+    def __init__(self,classifier = LR,classifier_args = {},preprocessors = [],preprocessor_args = [],n_estimators = 10,n_bootstrap = None,random_state = None,estimator_dir = 'bagging_dir',multilabel = False,prediction_threshold =0.2):
+        self.classifier = classifier
+        self.classifier_args = classifier_args
+        self.n_estimators = n_estimators
+        self.n_bootstrap =n_bootstrap
+        self.preprocessors = preprocessors
+        self.preprocessor_args = preprocessor_args
+        self.random_state = random_state
+        self.estimator_dir = estimator_dir
+        self.multilabel = multilabel
+        self.prediction_threshold = prediction_threshold
+        self.estimator_files = [None] * self.n_estimators
+        self.estimator_preprocs = [[]] * self.n_estimators
+        self.random_states = [None] * self.n_estimators
+
+
+    def fit(self,X,y):
+        if not os.path.exists(self.estimator_dir):
+            os.mkdir(self.estimator_dir)
+        pylab.seed(self.random_state)
+        oob_predictions = []
+        for i in range(self.n_estimators):
+            inbag,oob = bootstrap_samples(X.shape[0],self.n_bootstrap)
+            self.random_states[i] = pylab.randint(0,10000,1)[0]
+            inbag_preproc_data = X[inbag].copy()
+            for prep,prep_args in zip(self.preprocessors,self.preprocessor_args):
+                preproc = prep(**prep_args)
+                inbag_preproc_data = preproc.fit_transform(inbag_preproc_data,y[inbag])
+                self.estimator_preprocs[i].append(preproc)
+            classifier_args = self.classifier_args
+            classifier_args['random_state'] = self.random_states[i]
+            estimator = self.classifier(**classifier_args)
+            estimator.fit(inbag_preproc_data,y[inbag])
+            estimator_file = 'estimator_'+str(i)
+            _save_estimator(estimator, os.path.join(self.estimator_dir,estimator_file))
+            self.estimator_files[i] = estimator_file
+            oob_preproc_data = X[oob].copy()
+            for prep in self.estimator_preprocs[i]:
+                oob_preproc_data = prep.transform(oob_preproc_data)
+            oob_preds = np.zeros_like(y).astype(np.float32)*np.NaN
+            oob_preds[oob] = estimator.predict_proba(oob_preproc_data)
+            oob_predictions.append(oob_preds)
+        del estimator
+        oob_predictions = np.array(oob_predictions)
+        oob_predictions = np.nanmean(oob_predictions,axis=0)
+        oob_predictions[np.isnan(oob_predictions)] =0
+        return oob_predictions
+    def predict_proba(self,X):
+        predictions = []
+
+        for i in range(self.n_estimators):
+            estimator = self.classifier()
+
+            estimator = _load_estimator(estimator,os.path.join(self.estimator_dir,self.estimator_files[i]))
+            preproc_data = X.copy()
+            for prep in self.estimator_preprocs[i]:
+                preproc_data = prep.transform(preproc_data)
+            predictions.append(estimator.predict_proba(preproc_data))
+         
+        del estimator
+        return np.nanmean(np.array(predictions),axis=0)
+    def predict(self,X):
+        proba = self.predict_proba(X)
+        if self.multilabel:
+            return proba>self.prediction_threshold
+        else:
+            return np.argmax(proba,axis=1)
+
+
+    def save(self,save_dir = None):
+        if save_dir is None:
+            save_dir = self.estimator_dir
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        
+        if save_dir != self.estimator_dir:
+            # move the estimators to new dir
+            for estimator_name in self.estimator_files:
+                estimator = _load_estimator(self.classifier(), os.path.join(self.estimator_dir,estimator_name))
+                _save_estimator(estimator, os.path.join(save_dir,estimator_name))
+            self.estimator_dir = save_dir
+        pickle.dump(self, open(os.path.join(save_dir,'BaggingClassifier.pickle'),'w'),protocol = 2)
+    def load(self,load_dir):
+        new_self = pickle.load(open(os.path.join(load_dir,'BaggingClassifier.pickle')))
+        
+        for attr in dir(new_self):
+            try:
+                setattr(self, attr, getattr(new_self,attr))
+            except:
+                pass
+
+
+
+
+
+
