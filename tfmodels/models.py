@@ -177,56 +177,97 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
         return output
 
 
-class Resnet50(TFBaseClassifier):
-    def __init__(self,fixed_epochs =10,**kwargs):
-        super(Resnet50, self).__init__(**kwargs)
+
+class VGG16(TFBaseClassifier):
+    def __init__(self,fixed_epochs =10,n_hiddens = [4096,4096],dropout = 0,pooling = None,**kwargs):
+       
+        super(VGG16, self).__init__(**kwargs)
         keras.backend.set_session(self.session)
+       
+        self.pooling = pooling
+        self.fixed_layers = []
+        self.n_hiddens = n_hiddens
+        self.dropout = dropout
         self.train_feed_dict = {keras.backend.learning_phase():True}
         self.test_feed_dict = {keras.backend.learning_phase():False}
         self.epoch_count = 0
         self.fixed_epochs = fixed_epochs
-        self.bottom_fixed = True
+        self.bottom_fixed_ = True
+
         
-     
-        
+    @property
+    def bottom_fixed(self):
+        return self.bottom_fixed_
+    @bottom_fixed.setter 
+    def bottom_fixed(self,value):
+        if value == self.bottom_fixed_:
+            return
+        self.bottom_fixed_ = value
+        print 'switched bottom fixed to ',self.bottom_fixed_
+        self.train_step = self._train_step()
+        self._init_vars()
+    
     def _predict_step(self):
         with  tf.variable_scope('base_model'):
             
-            base_model = keras.applications.ResNet50(include_top = False,input_tensor = self.x,pooling= 'max')
+            base_model = keras.applications.VGG16(include_top = False,pooling = self.pooling)
+            base_output = base_model(self.x)
+            
+            
+            
+           
         
+        
+            
+        np.random.seed(self.random_state)
+        if self.random_state is not None:
+            tf.set_random_seed(self.random_state)
+        else:
+            tf.set_random_seed(np.random.randint(0,100000,1))
 
-        last_activation = base_model.output
+
+        last_activation = base_output
         flat_shape =  int(last_activation.shape[1]*last_activation.shape[2]*last_activation.shape[3])
         
         last_activation = tf.reshape(last_activation,[-1,flat_shape])
-        output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
+        with  tf.variable_scope('dense_top'):
+            for i,n_hidden in enumerate(self.n_hiddens):
+                linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
+                
+                linear = tf.layers.batch_normalization(linear,training = self.is_training)
+                
+                activation = tf.nn.relu(linear)
+                last_activation = tf.layers.dropout(activation,rate = self.dropout,training = self.is_training)
+
+            output = tf.layers.dense(last_activation,self.n_outputs,kernel_initializer = tf.contrib.layers.xavier_initializer())
         return output
         
         
     def _iteration_callback(self):
-
-        old_state = self.bottom_fixed
-        if self.epoch_count<self.fixed_epochs:
-            self.bottom_fixed = True
-        if self.epoch_count>=self.fixed_epochs:
-            self.bottom_fixed = False
-        if old_state!=self.bottom_fixed:
-            self.train_step = self._train_step()
-            self._init_vars()
         self.epoch_count+=1
+       
+        if self.epoch_count<=self.fixed_epochs:
+            self.bottom_fixed = True
+        if self.epoch_count>self.fixed_epochs:
+            self.bottom_fixed = False
+            
+        
+    
     def _init_vars(self):
         var_names = self.session.run( tf.report_uninitialized_variables( ) )
         
         var_list = [v for v in tf.global_variables() if v.name.split(':')[0] in var_names]
         
         self.session.run( tf.variables_initializer(var_list) )
+    
     def _opt_var_list(self):
         # control which variables are beeing optimized
         var_list = tf.trainable_variables()
+        for fixed in self.fixed_layers:
+            var_list =  [v for v in var_list if fixed not in v.name]
         if self.bottom_fixed:
             var_list = [v for v in var_list if 'base_model' not in v.name]
         return var_list
-
 
 
 class Resnet(TFBaseClassifier):
