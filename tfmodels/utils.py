@@ -333,12 +333,12 @@ class BaggingClassifier(object):
         self.score_func = score_func
 
         self.estimator_files = [None] * self.n_estimators
-        self.estimator_preprocs = [[]] * self.n_estimators
+        self.estimator_preprocs = [[] for i in range(self.n_estimators)]
         self.random_states = [None] * self.n_estimators
 
 
     def fit(self,X,y):
-        originaly = y.copy()
+        
         if not os.path.exists(self.estimator_dir):
             os.mkdir(self.estimator_dir)
         pylab.seed(self.random_state)
@@ -362,13 +362,14 @@ class BaggingClassifier(object):
             self.estimator_files[i] = estimator_file
             oob_preproc_data = X[oob].copy()
             for prep in self.estimator_preprocs[i]:
+            
                 oob_preproc_data = prep.transform(oob_preproc_data)
             oob_preds = np.zeros_like(y).astype(np.float32)*np.NaN
             oob_preds[oob] = estimator.predict_proba(oob_preproc_data)
             if self.verbose and self.score_func is not None:
                 print 'oob score: ',self.score_func(y[oob],oob_preds[oob])
             oob_predictions.append(oob_preds)
-        del estimator
+        
         oob_predictions = np.array(oob_predictions)
         oob_predictions = np.nanmean(oob_predictions,axis=0)
         oob_predictions[np.isnan(oob_predictions)] =0
