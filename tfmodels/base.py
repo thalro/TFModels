@@ -212,7 +212,7 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         if self.batchsize is None:
             self.batchsize = X.shape[0]
         self.warm_start = warm_start
-        if self.random_state is not None:
+        if self.random_state is not None and not warm_start:
             
             np.random.seed(self.random_state)
             tf.set_random_seed(self.random_state)

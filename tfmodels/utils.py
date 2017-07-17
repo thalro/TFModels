@@ -12,7 +12,8 @@ from random import choice
 
 from scipy import interpolate
 
-
+from copy import deepcopy
+from sklearn.multiclass import OneVsRestClassifier
 def _random_rotation(image):
     angle = choice([0.,90.,180.,270.])
     angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
@@ -422,6 +423,21 @@ class BaggingClassifier(object):
                 pass
 
 
+class OneVsRestWrapper(object):
+    def __init__(self,threshold= 0.5,**kwargs):
+        self.threshold = threshold
+        inargs = deepcopy(kwargs)
+        try:
+            classifier = inargs.pop('classifier')
+            self.ovr = OneVsRestClassifier(classifier(**inargs))
+        except:
+            pass
+    def fit(self,X,y):
+        self.ovr.fit(X,y)
+    def predict_proba(self,X):
+        return self.ovr.predict_proba(X)
+    def predict(self,X):
+        return (self.predict_proba(X)>self.threshold)*1.
 
 
 
