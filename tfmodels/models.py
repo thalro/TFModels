@@ -231,8 +231,8 @@ class KerasApplication(TFBaseClassifier):
             tf.set_random_seed(np.random.randint(0,100000,1))
 
 
-        last_activation = tf.contrib.layers.flatten(base_output)
         
+        last_activation = tf.layers.batch_normalization(tf.contrib.layers.flatten(base_output),training = self.is_training)
         with  tf.variable_scope('dense_top'):
             for i,n_hidden in enumerate(self.n_hiddens):
                 linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
