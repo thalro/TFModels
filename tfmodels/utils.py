@@ -338,6 +338,7 @@ class BaggingClassifier(object):
 
 
     def fit(self,X,y):
+        originaly = y.copy()
         if not os.path.exists(self.estimator_dir):
             os.mkdir(self.estimator_dir)
         pylab.seed(self.random_state)
