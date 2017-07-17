@@ -318,7 +318,7 @@ def _load_estimator(estimator,fname):
     return estimator
 
 class BaggingClassifier(object):
-    def __init__(self,classifier = LR,classifier_args = {},preprocessors = [],preprocessor_args = [],n_estimators = 10,n_bootstrap = None,random_state = None,estimator_dir = 'bagging_dir',multilabel = False,prediction_threshold =0.2,verbose = False):
+    def __init__(self,classifier = LR,classifier_args = {},preprocessors = [],preprocessor_args = [],n_estimators = 10,n_bootstrap = None,random_state = None,estimator_dir = 'bagging_dir',multilabel = False,prediction_threshold =0.2,verbose = False,score_func = None):
         self.classifier = classifier
         self.classifier_args = classifier_args
         self.n_estimators = n_estimators
@@ -330,6 +330,7 @@ class BaggingClassifier(object):
         self.multilabel = multilabel
         self.prediction_threshold = prediction_threshold
         self.verbose = verbose
+        self.score_func = score_func
 
         self.estimator_files = [None] * self.n_estimators
         self.estimator_preprocs = [[]] * self.n_estimators
@@ -363,6 +364,8 @@ class BaggingClassifier(object):
                 oob_preproc_data = prep.transform(oob_preproc_data)
             oob_preds = np.zeros_like(y).astype(np.float32)*np.NaN
             oob_preds[oob] = estimator.predict_proba(oob_preproc_data)
+            if self.verbose and self.score_func is not None:
+                print 'oob score: ',self.score_func(y[oob],oob_preds[oob])
             oob_predictions.append(oob_preds)
         del estimator
         oob_predictions = np.array(oob_predictions)
