@@ -215,8 +215,8 @@ class KerasApplication(TFBaseClassifier):
     def _predict_step(self):
         with  tf.variable_scope('base_model'):
             
-            base_model = self.application(include_top = False,pooling = self.pooling)
-            base_output = base_model.layers[-1].output
+            base_model = self.application(include_top = False,pooling = self.pooling,input_tensor = self.x)
+            base_output = base_model.output
             
             
             
