@@ -53,7 +53,7 @@ class ImageAugmenter(object):
     def transform(self,X,is_training = False):
         
         X_out = X.copy().astype(np.float32)
-        if X_out.max()<1:
+        if X_out.max()>1:
             X_out/=255.
         if is_training or self.TTA:
             for i in range(X.shape[0]):
@@ -76,7 +76,7 @@ class ImageNetScaler(object):
     def fit_transform(self,X,y=None):
         return self.transform(X)
     def transform(self,X,is_training = False):
-        X_out = X.copy()
+        X_out = X.copy().astype(np.float32)
         if not X_out.max()>1.:
             X_out *= 255.
         X_out = X_out[:, :, :, ::-1]
