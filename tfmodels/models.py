@@ -216,7 +216,7 @@ class KerasApplication(TFBaseClassifier):
         with  tf.variable_scope('base_model'):
             
             base_model = self.application(include_top = False,pooling = self.pooling)
-            base_output = base_model(self.x)
+            base_output = base_model.output
             
             
             
