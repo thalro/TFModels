@@ -318,7 +318,7 @@ def _load_estimator(estimator,fname):
     return estimator
 
 class BaggingClassifier(object):
-    def __init__(self,classifier = LR,classifier_args = {},preprocessors = [],preprocessor_args = [],n_estimators = 10,n_bootstrap = None,random_state = None,estimator_dir = 'bagging_dir',multilabel = False,prediction_threshold =0.2):
+    def __init__(self,classifier = LR,classifier_args = {},preprocessors = [],preprocessor_args = [],n_estimators = 10,n_bootstrap = None,random_state = None,estimator_dir = 'bagging_dir',multilabel = False,prediction_threshold =0.2,verbose = False):
         self.classifier = classifier
         self.classifier_args = classifier_args
         self.n_estimators = n_estimators
@@ -329,6 +329,8 @@ class BaggingClassifier(object):
         self.estimator_dir = estimator_dir
         self.multilabel = multilabel
         self.prediction_threshold = prediction_threshold
+        self.verbose = verbose
+
         self.estimator_files = [None] * self.n_estimators
         self.estimator_preprocs = [[]] * self.n_estimators
         self.random_states = [None] * self.n_estimators
@@ -340,6 +342,8 @@ class BaggingClassifier(object):
         pylab.seed(self.random_state)
         oob_predictions = []
         for i in range(self.n_estimators):
+            if self.verbose:
+                print 'fitting estimator ',i+1,' of ',self.n_estimators
             inbag,oob = bootstrap_samples(X.shape[0],self.n_bootstrap)
             self.random_states[i] = pylab.randint(0,10000,1)[0]
             inbag_preproc_data = X[inbag].copy()
@@ -369,10 +373,14 @@ class BaggingClassifier(object):
         predictions = []
 
         for i in range(self.n_estimators):
+            if self.verbose:
+                print 'loading estimator ',i+1,' of ',self.n_estimators
             estimator = self.classifier()
 
             estimator = _load_estimator(estimator,os.path.join(self.estimator_dir,self.estimator_files[i]))
             preproc_data = X.copy()
+            if self.verbose:
+                print 'generating prediction for estimator ',i+1,' of ',self.n_estimators
             for prep in self.estimator_preprocs[i]:
                 preproc_data = prep.transform(preproc_data)
             predictions.append(estimator.predict_proba(preproc_data))
