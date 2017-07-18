@@ -50,7 +50,7 @@ class KerasApplicationTransformer(object):
         else:
             self.application=application
         self.model = application(include_top = False)
-    def def fit(self,X,y=None):
+    def fit(self,X,y=None):
         pass
     def fit_transform(self,X,y=None,is_training = False):
         return self.transform(X,is_training)
