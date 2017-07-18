@@ -13,6 +13,7 @@ import tensorflow as tf
 tfDtype = tf.float32
 npDtype = np.float32
 
+TFMODEL_SAVE_SCOPE = 'tfmodel'
 
 def recursive_argspec(cls):
     if cls is object: 
@@ -113,7 +114,8 @@ class TFBaseEstimator(BaseEstimator):
             self.session = tf.Session(config=config)
         else:
             self.session = tf.Session()
-        self.global_step_tensor = tf.Variable(0,name = 'global_step', trainable=False)
+        with tf.variable_scope(TFMODEL_SAVE_SCOPE):
+            self.global_step_tensor = tf.Variable(0,name = 'global_step', trainable=False)
 
     @classmethod
     def _get_param_names(cls):
@@ -138,8 +140,8 @@ class TFBaseEstimator(BaseEstimator):
         pickle.dump((params,self.is_fitted), open(fname+'.params','w'),protocol = 2)
         
         # save the tf session
-
-        saver = tf.train.Saver()
+        var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=TFMODEL_SAVE_SCOPE)
+        saver = tf.train.Saver(var_list = var_list)
         saver.save(self.session,fname+'.session')
 
     def load(self,fname):
@@ -229,25 +231,31 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
 
         self.n_classes = len(self.classes_)
         self.n_outputs = bin_y.shape[1]
-        self.feature_shape = list(X.shape[1:])
+        # push some data through preprocessors, to see final feature shape
+        feature = X[:1]
+        for prep,args in zip(self.batch_preprocessors,self.batch_preprocessor_args):
+            preproc = prep(**args)
+            feature = preproc.fit_transform(feature)
+        self.feature_shape = list(feature.shape[1:])
 
         
        
         
         if not self.is_fitted:
-            # place holder for the input and output
-            self.x = tf.placeholder(tf.float32,[None]+self.feature_shape,name = 'self.x')
-            self.y = tf.placeholder(tf.float32,[None,self.n_outputs],name = 'self.y')
-            self.learning_rate_tensor = tf.placeholder(tf.float32,shape = [],name = 'learning_rate')
-            # create graph
-            self.predict_step = self._predict_step()
-            self.loss = self._loss_func()
-            # op for train step
-            self.train_step = self._train_step()
-            if self.output_type == 'softmax':
-                self.prediction = tf.nn.softmax(self.predict_step)
-            elif self.output_type == 'sigmoid':
-                self.prediction = tf.nn.sigmoid(self.predict_step)
+            with tf.variable_scope(TFMODEL_SAVE_SCOPE):
+                # place holder for the input and output
+                self.x = tf.placeholder(tf.float32,[None]+self.feature_shape,name = 'self.x')
+                self.y = tf.placeholder(tf.float32,[None,self.n_outputs],name = 'self.y')
+                self.learning_rate_tensor = tf.placeholder(tf.float32,shape = [],name = 'learning_rate')
+                # create graph
+                self.predict_step = self._predict_step()
+                self.loss = self._loss_func()
+                # op for train step
+                self.train_step = self._train_step()
+                if self.output_type == 'softmax':
+                    self.prediction = tf.nn.softmax(self.predict_step)
+                elif self.output_type == 'sigmoid':
+                    self.prediction = tf.nn.sigmoid(self.predict_step)
 
         
         # initialize variables
