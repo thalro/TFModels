@@ -12,8 +12,10 @@ from random import choice
 
 from scipy import interpolate
 
-from copy import deepcopy
-from sklearn.multiclass import OneVsRestClassifier
+r
+from tensorflow.contrib import keras
+
+
 def _random_rotation(image):
     angle = choice([0.,90.,180.,270.])
     #angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
@@ -41,6 +43,19 @@ def _random_rescaling(image):
         image = scaled[xoffset:xoffset+originalsize[0],yoffset:yoffset+originalsize[1]]
     return image
 
+class KerasApplicationTransformer(object):
+    def __init__(self,application):
+        if isinstance(application, basestring):
+            self.application = eval( 'keras.applications.'+application)
+        else:
+            self.application=application
+        self.model = application(include_top = False)
+    def def fit(self,X,y=None):
+        pass
+    def fit_transform(self,X,y=None,is_training = False):
+        return self.transform(X,is_training)
+    def transform(self,X,is_training = False):
+        return self.model.predict(X)
 
 class ImageAugmenter(object):
     def __init__(self,transform_prob = 0.5,TTA = False):
@@ -439,24 +454,5 @@ class BaggingClassifier(object):
                 setattr(self, attr, getattr(new_self,attr))
             except:
                 pass
-
-
-class OneVsRestWrapper(object):
-    def __init__(self,threshold= 0.5,**kwargs):
-        self.threshold = threshold
-        inargs = deepcopy(kwargs)
-        try:
-            classifier = inargs.pop('classifier')
-            self.ovr = OneVsRestClassifier(classifier(**inargs))
-        except:
-            pass
-    def fit(self,X,y):
-        self.ovr.fit(X,y)
-    def predict_proba(self,X):
-        return self.ovr.predict_proba(X)
-    def predict(self,X):
-        return (self.predict_proba(X)>self.threshold)*1.
-
-
 
 
