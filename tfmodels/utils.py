@@ -12,15 +12,15 @@ from random import choice
 
 from scipy import interpolate
 
-
+import tensorflow as tf
 from tensorflow.contrib import keras
 
 
 def _random_rotation(image):
-    angle = choice([0.,90.,180.,270.])
+    angle = choice([1,2,3])
     #angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
     #print angle
-    return rotate(image,angle,resize = False)
+    return np.rot90(image,angle)
 def _random_rescaling(image):
     # rescale between +/- 25%
     scale = 0.75 + 0.5 * pylab.rand()
@@ -44,18 +44,23 @@ def _random_rescaling(image):
     return image
 
 class KerasApplicationTransformer(object):
-    def __init__(self,application):
+    def __init__(self,application = 'VGG16'):
         if isinstance(application, basestring):
             self.application = eval( 'keras.applications.'+application)
         else:
             self.application=application
-        self.model = application(include_top = False)
+        self.model = self.application(include_top = False)
+    
     def fit(self,X,y=None):
         pass
     def fit_transform(self,X,y=None,is_training = False):
         return self.transform(X,is_training)
     def transform(self,X,is_training = False):
-        return self.model.predict(X)
+        output = self.model.predict(X)
+        if len(output.shape)>2:
+            n_features = output.shape[1]*output.shape[2]*output.shape[3]
+            output = output.reshape((X.shape[0],n_features))
+        return output  
 
 class ImageAugmenter(object):
     def __init__(self,transform_prob = 0.5,TTA = False):
@@ -68,8 +73,6 @@ class ImageAugmenter(object):
     def transform(self,X,is_training = False):
         
         X_out = X.copy()
-        # if X_out.max()>1:
-        #     X_out/=255.
         if is_training or self.TTA:
             for i in range(X.shape[0]):
                 transform_list = [pylab.fliplr,pylab.flipud,_random_rotation]
