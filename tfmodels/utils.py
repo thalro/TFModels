@@ -67,9 +67,9 @@ class ImageAugmenter(object):
         return self.transform(X,is_training)
     def transform(self,X,is_training = False):
         
-        X_out = X.copy().astype(np.float32)
-        if X_out.max()>1:
-            X_out/=255.
+        # X_out = X.copy().astype(np.float32)
+        # if X_out.max()>1:
+        #     X_out/=255.
         if is_training or self.TTA:
             for i in range(X.shape[0]):
                 transform_list = [pylab.fliplr,pylab.flipud,_random_rotation]
