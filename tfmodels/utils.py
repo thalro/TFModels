@@ -12,7 +12,7 @@ from random import choice
 
 from scipy import interpolate
 
-r
+
 from tensorflow.contrib import keras
 
 
