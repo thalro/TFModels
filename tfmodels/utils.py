@@ -67,7 +67,7 @@ class ImageAugmenter(object):
         return self.transform(X,is_training)
     def transform(self,X,is_training = False):
         
-        # X_out = X.copy().astype(np.float32)
+        X_out = X.copy()
         # if X_out.max()>1:
         #     X_out/=255.
         if is_training or self.TTA:
