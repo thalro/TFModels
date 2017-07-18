@@ -16,7 +16,7 @@ from copy import deepcopy
 from sklearn.multiclass import OneVsRestClassifier
 def _random_rotation(image):
     angle = choice([0.,90.,180.,270.])
-    angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
+    #angle += choice([0,-pylab.rand()*10.,pylab.rand()*10.])
     #print angle
     return rotate(image,angle,resize = False)
 def _random_rescaling(image):
@@ -57,7 +57,7 @@ class ImageAugmenter(object):
             X_out/=255.
         if is_training or self.TTA:
             for i in range(X.shape[0]):
-                transform_list = [pylab.fliplr,pylab.flipud,_random_rotation,_random_rescaling]
+                transform_list = [pylab.fliplr,pylab.flipud,_random_rotation]
                 for transform in transform_list:
                     
                     if pylab.rand()<self.transform_prob:
@@ -86,8 +86,25 @@ class ImageNetScaler(object):
         X_out[:, :, :, 2] -= 123.68
         return X_out
       
+class NoiseAdder(object):
+    """ adds gaussian noise to transformed data. """
+    def __init__(self,std = 0.1,TTA = True):
+        self.std = std
+        self.TTA = TTA
+    def fit(self,X,y=None):
+        pass
+    def fit_transform(self,X,y=None):
+        return self.transform(X)
+    def transform(self,X,is_training = False):
+        if is_training or self.TTA:
+            return X+pylab.randn(*X.shape)*self.std
+        else:
+            return X
+
 def accuracy(y_true,y_pred):
     return (y_true==y_pred).mean()
+
+
 
 class NetworkTrainer(BaseEstimator):
     def __init__(self,model_type=None,model_args={},stagnation_slope  = 0.05,max_epochs = 100,
