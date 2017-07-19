@@ -49,7 +49,9 @@ class KerasApplicationTransformer(object):
             self.application = eval( 'keras.applications.'+application)
         else:
             self.application=application
+        keras.backend.set_session(tf.get_default_session())
         self.model = self.application(include_top = False)
+    
     
     def fit(self,X,y=None):
         pass

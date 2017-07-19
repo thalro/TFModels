@@ -277,7 +277,12 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
             return
         
         output = []
-        batches = BatchGernerator(X,None,self.batchsize,1,shuffle = False,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = False)
+        with self.session.as_default():
+            # make sure that batch preprocessors are created in the same graph
+            batches = BatchGernerator(X,None,self.batchsize,1,shuffle = False,
+                                      preprocessors = self.batch_preprocessors,
+                                      preprocessor_args = self.batch_preprocessor_args,
+                                      is_training = False)
         for (Xbatch,ybatch,iteration) in batches:
             feed_dict = {self.x:Xbatch.astype(float),self.is_training:False}
             feed_dict.update(self.test_feed_dict)
@@ -305,8 +310,11 @@ class TFBaseClassifier(TFBaseEstimator,ClassifierMixin):
         for iterations,learning_rate in zip(self.iterations,self.learning_rates):
             
             self.learning_rate = learning_rate
-            
-            batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,start_iteration = iteration,preprocessors = self.batch_preprocessors,preprocessor_args = self.batch_preprocessor_args,is_training = True)
+            with self.session.as_default():
+                # make sure that batch preprocessors are created in the same graph
+                batches = BatchGernerator(X,y,self.batchsize, iterations+iteration,
+                                    start_iteration = iteration,preprocessors = self.batch_preprocessors,
+                                    preprocessor_args = self.batch_preprocessor_args,is_training = True)
             for i,(Xbatch,ybatch,iteration) in enumerate(batches):
                 if iteration>current_iteration:
                     current_iteration+=1
