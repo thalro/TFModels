@@ -44,11 +44,12 @@ def _random_rescaling(image):
     return image
 
 class KerasApplicationTransformer(object):
-    def __init__(self,application = 'VGG16'):
+    def __init__(self,application = 'VGG16',batchsize = 32):
         if isinstance(application, basestring):
             self.application = eval( 'keras.applications.'+application)
         else:
             self.application=application
+        self.batchsize = batchsize
         keras.backend.set_session(tf.get_default_session())
         self.model = self.application(include_top = False)
     
@@ -58,7 +59,7 @@ class KerasApplicationTransformer(object):
     def fit_transform(self,X,y=None,is_training = False):
         return self.transform(X,is_training)
     def transform(self,X,is_training = False):
-        output = self.model.predict(X)
+        output = self.model.predict(X,batch_size = self.batchsize)
         if len(output.shape)>2:
             n_features = output.shape[1]*output.shape[2]*output.shape[3]
             output = output.reshape((X.shape[0],n_features))
