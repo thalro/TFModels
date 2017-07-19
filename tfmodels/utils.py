@@ -61,6 +61,12 @@ class KerasApplicationTransformer(object):
             n_features = output.shape[1]*output.shape[2]*output.shape[3]
             output = output.reshape((X.shape[0],n_features))
         return output  
+    def save(self,fname):
+        # this is only for compatibility
+        pass
+    def load(self,fname):
+        # this as well...
+        pass
 
 class ImageAugmenter(object):
     def __init__(self,transform_prob = 0.5,TTA = False):
@@ -448,6 +454,11 @@ class BaggingClassifier(object):
                 estimator = _load_estimator(self.classifier(), os.path.join(self.estimator_dir,estimator_name))
                 _save_estimator(estimator, os.path.join(save_dir,estimator_name))
             self.estimator_dir = save_dir
+        for i,preprocs in enumerate(self.estimator_preprocs):
+            for j, preproc in enumerate(preprocs):
+                preproc_fname = os.path.join(save_dir,'preproc_'+str(i)+'_'+str(j))
+                _save_estimator(preproc, preproc_fname)
+        self.estimator_preprocs = []
         pickle.dump(self, open(os.path.join(save_dir,'BaggingClassifier.pickle'),'w'),protocol = 2)
     def load(self,load_dir):
         new_self = pickle.load(open(os.path.join(load_dir,'BaggingClassifier.pickle')))
@@ -457,5 +468,14 @@ class BaggingClassifier(object):
                 setattr(self, attr, getattr(new_self,attr))
             except:
                 pass
+        self.estimator_preprocs = []
+        for i,preprocs in enumerate(self.estimator_files):
+            preprocs = []
+            for preproc,preproc_args in zip(self.preprocessors,self.preprocessor_args):
+                preproc = preproc(**preproc_args)
+                preproc_fname = os.path.join(save_dir,'preproc_'+str(i)+'_'+str(j))
+                preproc = _load_estimator(preproc, preproc_fname)
+                preprocs.append(preproc)
+            self.estimator_preprocs.append(preprocs)
 
 
