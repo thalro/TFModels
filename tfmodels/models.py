@@ -219,7 +219,9 @@ class KerasApplication(TFBaseClassifier):
             base_model = self.application(include_top = False,pooling = self.pooling,input_tensor = self.x)
             if self.use_layers!= 'all':
                 base_model.layers = base_model.layers[:self.use_layers]
-            base_output = base_model.layers[-1].output
+                base_output = base_model.layers[-1].output
+            else:
+                base_output = base_model.output
             
             
             if self.additional_pooling == 'avg':
