@@ -179,7 +179,7 @@ class ConvolutionalNeuralNet(TFBaseClassifier):
 
 
 class KerasApplication(TFBaseClassifier):
-    def __init__(self,fixed_epochs =10,n_hiddens = [4096,4096],dropout = 0,pooling = None,application = None,**kwargs):
+    def __init__(self,fixed_epochs =10,n_hiddens = [4096,4096],dropout = 0,pooling = None,additional_pooling = None,use_layers = 'all',application = None,**kwargs):
        
         super(KerasApplication, self).__init__(**kwargs)
         keras.backend.set_session(self.session)
@@ -193,7 +193,8 @@ class KerasApplication(TFBaseClassifier):
         self.epoch_count = 0
         self.fixed_epochs = fixed_epochs
         self.bottom_fixed_ = True
-
+        self.use_layers = use_layers
+        self.additional_pooling = additional_pooling
         if isinstance(application, basestring):
             self.application = eval( 'keras.applications.'+application)
         else:
@@ -216,10 +217,17 @@ class KerasApplication(TFBaseClassifier):
         with  tf.variable_scope('base_model'):
             
             base_model = self.application(include_top = False,pooling = self.pooling,input_tensor = self.x)
+            if self.use_layers!= 'all':
+                base_model.layers = base_model.layers[:self.use_layers]
             base_output = base_model.output
             
             
-            
+            if self.additional_pooling == 'avg':
+                pooled = tf.layers.average_pooling2d(last_layer,pool_size,pool_size)
+            elif self.additional_pooling == 'max':
+                pooled = tf.layers.max_pooling2d(last_layer,pool_size,pool_size)
+                
+
            
         
         
@@ -232,8 +240,9 @@ class KerasApplication(TFBaseClassifier):
 
 
         
-        last_activation = tf.layers.batch_normalization(tf.contrib.layers.flatten(base_output),training = self.is_training)
+        
         with  tf.variable_scope('dense_top'):
+            last_activation = tf.layers.batch_normalization(tf.contrib.layers.flatten(base_output),training = self.is_training)
             for i,n_hidden in enumerate(self.n_hiddens):
                 linear = tf.layers.dense(last_activation,n_hidden,kernel_initializer = tf.contrib.layers.xavier_initializer())
                 
