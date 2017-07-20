@@ -219,14 +219,14 @@ class KerasApplication(TFBaseClassifier):
             base_model = self.application(include_top = False,pooling = self.pooling,input_tensor = self.x)
             if self.use_layers!= 'all':
                 base_model.layers = base_model.layers[:self.use_layers]
-            base_output = base_model.output
+            base_output = base_model.layers[-1].output
             
             
             if self.additional_pooling == 'avg':
-                pool_size = base_output.shape[1:]
+                pool_size = base_output.shape[1:3]
                 base_output = tf.layers.average_pooling2d(base_output,pool_size,pool_size)
             elif self.additional_pooling == 'max':
-                pool_size = base_output.shape[1:]
+                pool_size = base_output.shape[1:3]
                 base_output = tf.layers.max_pooling2d(base_output,pool_size,pool_size)
 
 
